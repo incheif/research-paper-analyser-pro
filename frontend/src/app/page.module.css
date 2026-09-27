@@ -1,406 +1,482 @@
-/* Research Paper Analyser Pro - Page Styles */
+﻿/* Editorial Newspaper Reader Styling - Clean, Elegant & Effortless to Read */
 
-.container {
+.wrapper {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  position: relative;
-  z-index: 1;
+  background-color: var(--bg-page);
+  color: var(--ink-body);
 }
 
-/* Header */
-.header {
+/* Masthead Header */
+.masthead {
+  border-bottom: 2px solid var(--rule-strong);
+  background: var(--bg-surface);
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 50;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.topBar {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 8px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 32px;
-  background: rgba(7, 9, 14, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.logoIcon {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
-}
-
-.brandTitle {
-  font-size: 1.25rem;
-  font-weight: 800;
-  background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 50%, #38bdf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1.2;
-}
-
-.brandSubtitle {
+  border-bottom: 1px solid var(--rule-subtle);
+  font-family: var(--font-ui);
   font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
 }
 
-.headerActions {
+.topBarMeta {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-/* Main Layout */
-.main {
-  flex: 1;
-  max-width: 1600px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 24px 32px;
+.topBarActions {
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  align-items: center;
+  gap: 8px;
 }
 
-/* Hero & Upload Section */
-.uploadHero {
-  padding: 36px 40px;
+.mainHeader {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mastheadTitleGroup {
+  cursor: pointer;
+}
+
+.newspaperLogo {
+  font-family: var(--font-headline);
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink-primary);
+  line-height: 1.1;
+}
+
+.newspaperTagline {
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+
+/* Main Container */
+.mainContainer {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 24px;
+  flex: 1;
+}
+
+/* Upload Hero (Empty State) */
+.heroUpload {
+  max-width: 800px;
+  margin: 40px auto;
   text-align: center;
-  background: radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.08) 0%, rgba(13, 18, 31, 0.6) 80%);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 20px;
 }
 
-.heroTitle {
-  font-size: 2.2rem;
-  font-weight: 800;
-  max-width: 800px;
-  line-height: 1.25;
+.heroLeadTitle {
+  font-family: var(--font-headline);
+  font-size: 2.4rem;
+  color: var(--ink-primary);
+  line-height: 1.2;
 }
 
-.heroTitleHighlight {
-  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.heroLeadSubtitle {
+  font-family: var(--font-reading);
+  font-size: 1.15rem;
+  color: var(--ink-secondary);
+  max-width: 620px;
+  line-height: 1.6;
 }
 
-.heroSubtitle {
-  font-size: 1.05rem;
-  color: var(--text-secondary);
-  max-width: 650px;
-}
-
-/* Dropzone */
 .dropzone {
   width: 100%;
-  max-width: 680px;
-  padding: 36px 24px;
-  border: 2px dashed rgba(99, 102, 241, 0.35);
-  border-radius: var(--radius-lg);
-  background: rgba(13, 18, 31, 0.5);
+  padding: 48px 32px;
+  background: var(--bg-surface);
+  border: 2px dashed var(--rule-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
 }
-
-.dropzone:hover, .dropzoneActive {
-  border-color: var(--accent-cyan);
-  background: rgba(6, 182, 212, 0.05);
-  box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
-  transform: translateY(-2px);
+.dropzone:hover {
+  border-color: var(--ink-primary);
+  background: var(--bg-surface-elevated);
 }
 
-.dropIcon {
-  font-size: 2.4rem;
-  animation: floatAnim 3s ease-in-out infinite;
+.dropzoneIcon {
+  font-size: 2.2rem;
 }
 
-@keyframes floatAnim {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-
-.dropText {
+.dropzoneTitle {
+  font-family: var(--font-ui);
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--ink-primary);
 }
 
-.dropHint {
+.dropzoneHint {
+  font-family: var(--font-ui);
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
-/* Active Paper Header Bar */
-.activePaperBar {
+/* Paper Headline & Byline Header */
+.articleHeader {
+  border-bottom: 2px solid var(--rule-strong);
+  padding-bottom: 24px;
+  margin-bottom: 28px;
+}
+
+.articleCategory {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-ink);
+  margin-bottom: 8px;
+}
+
+.articleHeadline {
+  font-family: var(--font-headline);
+  font-size: 2.35rem;
+  font-weight: 800;
+  color: var(--ink-primary);
+  line-height: 1.2;
+  margin-bottom: 14px;
+}
+
+.bylineStrip {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: rgba(17, 24, 39, 0.85);
-  border: 1px solid var(--border-accent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-.paperDetails {
-  display: flex;
-  align-items: center;
   gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-subtle);
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  color: var(--ink-secondary);
 }
 
-.paperIcon {
-  font-size: 1.8rem;
+.authorAffiliation {
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--ink-primary);
 }
 
-.paperName {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.paperMetaChips {
+.articleMetaBadges {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
 }
 
-/* Split Workspace */
-.workspaceGrid {
+/* Two-Column Reader & Assistant Grid */
+.editorialGrid {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 24px;
-  min-height: 700px;
+  grid-template-columns: 1fr 380px;
+  gap: 36px;
+  align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .workspaceGrid {
+@media (max-width: 1080px) {
+  .editorialGrid {
     grid-template-columns: 1fr;
   }
 }
 
-/* Left Column: Breakdown Cards */
-.analysisColumn {
+/* Reading Column (Continuous Flow) */
+.storyColumn {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 32px;
 }
 
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 16px;
-}
-
-.cardTitle {
-  font-size: 1.1rem;
-  font-weight: 700;
+/* Sticky Quick Jump Bar */
+.jumpBar {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
-.cardBody {
-  font-size: 0.95rem;
-  color: #cbd5e1;
-  line-height: 1.7;
+.jumpLink {
+  color: var(--ink-muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+.jumpLink:hover {
+  color: var(--ink-primary);
+  background: var(--bg-subtle);
 }
 
-.bulletList {
+/* Editorial Story Section */
+.storySection {
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-subtle);
+  border-radius: var(--radius-sm);
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.sectionHeading {
+  font-family: var(--font-headline);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink-primary);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.leadParagraph {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: var(--ink-primary);
+  font-weight: 400;
+}
+
+.leadParagraph::first-letter {
+  font-family: var(--font-headline);
+  float: left;
+  font-size: 3.4rem;
+  line-height: 0.85;
+  padding-right: 10px;
+  padding-top: 4px;
+  color: var(--ink-primary);
+  font-weight: 700;
+}
+
+.storyBody {
+  font-size: var(--reading-font-size);
+  line-height: var(--reading-line-height);
+  color: var(--ink-body);
+}
+
+/* Numbered Contributions */
+.contributionList {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  margin-top: 8px;
 }
 
-.bulletItem {
+.contributionItem {
   display: flex;
+  gap: 16px;
   align-items: flex-start;
-  gap: 10px;
 }
 
-.bulletIcon {
-  color: var(--accent-cyan);
+.contributionNumber {
+  font-family: var(--font-headline);
   font-size: 1.1rem;
-  margin-top: 2px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  min-width: 24px;
 }
 
-/* BibTeX Box */
-.bibtexBox {
-  background: #090c13;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
-  font-family: var(--font-mono);
+.contributionText {
+  font-size: var(--reading-font-size);
+  line-height: var(--reading-line-height);
+  color: var(--ink-body);
+}
+
+/* Callout Box (Limitations) */
+.calloutBox {
+  background: var(--bg-surface-elevated);
+  border-left: 3px solid var(--accent-ink);
+  padding: 20px 24px;
+  margin-top: 12px;
+  font-family: var(--font-reading);
+}
+
+/* BibTeX Container */
+.bibtexCard {
+  background: var(--bg-subtle);
+  border: 1px solid var(--rule-border);
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-code);
   font-size: 0.82rem;
-  color: #38bdf8;
+  color: var(--ink-body);
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 180px;
+  max-height: 220px;
   overflow-y: auto;
 }
 
-/* Right Column: Chat Assistant */
-.chatColumn {
+/* Right Column: Scholarly Co-Pilot Chat */
+.assistantColumn {
+  position: sticky;
+  top: 96px;
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-subtle);
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 220px);
-  min-height: 650px;
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  height: calc(100vh - 120px);
+  min-height: 600px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
-.chatHeader {
-  padding: 16px 20px;
-  background: rgba(13, 18, 31, 0.8);
-  border-bottom: 1px solid var(--border-subtle);
+.assistantHeader {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  font-family: var(--font-ui);
 }
 
-.chatTitleGroup {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.assistantTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.chatMessages {
+.chatFeed {
   flex: 1;
-  padding: 20px;
+  padding: 18px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-/* Message Bubbles */
-.message {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 88%;
-}
-
-.userMessage {
+.msgUser {
   align-self: flex-end;
+  max-width: 88%;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--rule-border);
+  color: var(--ink-primary);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
-.userBubble {
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-  color: #ffffff;
-  padding: 12px 18px;
-  border-radius: 18px 18px 4px 18px;
-  font-size: 0.93rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.aiMessage {
+.msgAssistant {
   align-self: flex-start;
   width: 100%;
-}
-
-.aiBubble {
-  background: rgba(13, 18, 31, 0.85);
-  border: 1px solid var(--border-subtle);
-  color: #e2e8f0;
-  padding: 16px 20px;
-  border-radius: 4px 18px 18px 18px;
-  font-size: 0.93rem;
+  background: var(--bg-page);
+  border-left: 2px solid var(--ink-primary);
+  padding: 12px 14px;
+  color: var(--ink-body);
+  font-family: var(--font-reading);
+  font-size: 0.95rem;
   line-height: 1.65;
 }
 
-.messageMeta {
+.msgMeta {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.74rem;
-  color: var(--text-muted);
 }
 
-/* Suggested Question Chips */
-.suggestedQuestions {
-  padding: 12px 20px;
-  background: rgba(13, 18, 31, 0.4);
-  border-top: 1px solid var(--border-subtle);
+/* Quick Inquiry Chips */
+.quickQuestions {
+  padding: 10px 16px;
+  border-top: 1px solid var(--rule-subtle);
+  background: var(--bg-page);
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quickQuestionChip {
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-border);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quickQuestionChip:hover {
+  border-color: var(--ink-primary);
+  color: var(--ink-primary);
+  background: var(--bg-surface-elevated);
+}
+
+/* Chat Input */
+.chatInputForm {
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule-subtle);
+  display: flex;
   gap: 8px;
 }
 
-.suggestionChip {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: var(--radius-full);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.suggestionChip:hover {
-  background: rgba(6, 182, 212, 0.12);
-  border-color: var(--accent-cyan);
-  color: #ffffff;
-}
-
-/* Chat Input Bar */
-.chatInputArea {
-  padding: 16px 20px;
-  background: rgba(13, 18, 31, 0.9);
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  gap: 10px;
-}
-
-.chatInput {
+.chatInputField {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 12px 18px;
-  border-radius: var(--radius-md);
-  font-size: 0.92rem;
+  padding: 9px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--rule-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--ink-primary);
   outline: none;
-  transition: border-color var(--transition-fast);
 }
-.chatInput:focus {
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+.chatInputField:focus {
+  border-color: var(--ink-primary);
 }
 
-/* Citation Drawer / Modal */
+/* Modal Overlay */
 .modalBackdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -408,46 +484,67 @@
   padding: 20px;
 }
 
-.modalCard {
-  background: #0f1626;
-  border: 1px solid var(--border-accent);
-  border-radius: var(--radius-xl);
-  max-width: 600px;
+.modalBox {
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-width: 540px;
   width: 100%;
-  padding: 28px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .modalHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 1px solid var(--rule-subtle);
+  padding-bottom: 10px;
 }
 
-.inputGroup {
+.modalTitle {
+  font-family: var(--font-headline);
+  font-size: 1.2rem;
+  color: var(--ink-primary);
+}
+
+.excerptContent {
+  background: var(--bg-surface-elevated);
+  border-left: 3px solid var(--accent-citation);
+  padding: 16px;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--ink-primary);
+}
+
+.formField {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.inputLabel {
-  font-size: 0.85rem;
+.formLabel {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--ink-secondary);
 }
 
-.textInput {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  color: #ffffff;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
+.formInput, .formSelect {
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--rule-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--ink-primary);
   outline: none;
 }
-.textInput:focus {
-  border-color: var(--accent-indigo);
+.formInput:focus, .formSelect:focus {
+  border-color: var(--ink-primary);
 }
