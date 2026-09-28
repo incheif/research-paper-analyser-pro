@@ -1,3 +1,4 @@
+import io
 import os
 import math
 import re
@@ -89,6 +90,8 @@ class VectorIndex:
         if not self.chunks:
             return []
 
+        is_ref_query = bool(re.search(r'\b(?:references?|citations?|bibliography|who wrote|authors? of|literature cited)\b', query_text, re.I))
+
         if self.use_google and len(self.embeddings) > 0:
             try:
                 import google.generativeai as genai
@@ -104,7 +107,14 @@ class VectorIndex:
                     q_vec = q_vec / q_norm
                 
                 scores = np.dot(self.embeddings, q_vec)
-                top_indices = np.argsort(scores)[::-1][:top_k]
+
+                adjusted_scores = scores.copy()
+                if not is_ref_query:
+                    for idx, chunk in enumerate(self.chunks):
+                        if chunk.get("is_reference"):
+                            adjusted_scores[idx] *= 0.30
+
+                top_indices = np.argsort(adjusted_scores)[::-1][:top_k]
                 
                 results = []
                 for idx in top_indices:
@@ -130,7 +140,14 @@ class VectorIndex:
             q_vec = q_vec / q_norm
 
         scores = np.dot(self.doc_vectors, q_vec)
-        top_indices = np.argsort(scores)[::-1][:top_k]
+
+        adjusted_scores = scores.copy()
+        if not is_ref_query:
+            for idx, chunk in enumerate(self.chunks):
+                if chunk.get("is_reference"):
+                    adjusted_scores[idx] *= 0.30
+
+        top_indices = np.argsort(adjusted_scores)[::-1][:top_k]
 
         results = []
         for idx in top_indices:

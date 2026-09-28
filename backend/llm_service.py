@@ -180,12 +180,18 @@ class LLMService:
         conversation_history: List[Dict[str, str]] = None,
         model: Optional[str] = None
     ) -> Dict[str, Any]:
+        default_cross_questions = [
+            "How do these findings compare with existing baselines?",
+            "What are the computational bottlenecks during inference?",
+            "Could this approach be adapted for multi-modal or real-time domains?"
+        ]
+
         if not retrieved_chunks:
             return {
-                "answer": "The answer could not be found in the uploaded documents as no relevant sections were matched.",
+                "answer": "The requested topic could not be identified within the indexed sections of the uploaded documents. Consider querying with alternative technical terminology or verifying if the topic is addressed in a specific section.",
                 "citations": [],
                 "cross_questions": [
-                    "Could you rephrase the question using different keywords?",
+                    "Could you rephrase the question using different technical terms?",
                     "What specific section of the paper should I search?",
                     "Are there other metrics or concepts discussed in the abstract?"
                 ]
@@ -193,7 +199,10 @@ class LLMService:
 
         context_parts = []
         for c in retrieved_chunks:
-            doc_tag = f"[{c.get('filename')}, Page {c.get('page')}]" if c.get('filename') else f"[Page {c.get('page')}]"
+            fname = c.get('filename', '')
+            clean_name = re.sub(r'\.pdf$', '', fname, flags=re.I).strip() if fname else "Document"
+            ref_tag = " [SECTION: Cited References/Bibliography - PRIOR ART]" if c.get("is_reference") else ""
+            doc_tag = f"[{clean_name}, Page {c.get('page')}{ref_tag}]"
             context_parts.append(
                 f"Source Chunk #{c.get('chunk_id')} | {doc_tag}:\n{c.get('text')}\n"
             )
@@ -202,26 +211,22 @@ class LLMService:
         citations = []
         for c in retrieved_chunks:
             snippet = c.get("text", "")[:280] + ("..." if len(c.get("text", "")) > 280 else "")
+            fname = c.get('filename', '')
+            clean_name = re.sub(r'\.pdf$', '', fname, flags=re.I).strip()
             citations.append({
                 "page": c.get("page", 1),
                 "chunk_id": c.get("chunk_id", 1),
-                "filename": c.get("filename", ""),
+                "filename": clean_name,
                 "snippet": snippet,
                 "relevance_score": round(c.get("score", 0.0), 3)
             })
 
-        default_cross_questions = [
-            "How do these findings compare with existing baselines?",
-            "What are the computational bottlenecks during inference?",
-            "Could this approach be adapted for multi-modal or real-time domains?"
-        ]
-
         if not self.google_api_key and not self.groq_api_key:
             primary_chunk = retrieved_chunks[0]
             answer = (
-                f"**Retrieved Insight from Page {primary_chunk.get('page')}:**\n\n"
+                f"**Executive Synthesis:**\n\n"
                 f"> \"{primary_chunk.get('text')[:350]}...\"\n\n"
-                f"💡 *Note: To unlock live conversational reasoning, enter your API key in the top bar.*"
+                f"*Note: Configure your Gemini API key in the top navigation bar to enable full academic reasoning and synthesis.*"
             )
             return {
                 "answer": answer,
@@ -230,12 +235,29 @@ class LLMService:
             }
 
         system_prompt = (
-            "You are a distinguished academic research assistant and critical reviewer. "
-            "Use ONLY the provided context excerpts to answer the question with thorough, precise reasoning. "
-            "Whenever you assert a factual claim, cite the exact source using bracketed notation like `[Page X]` "
-            "or `[Filename, Page X]`.\n\n"
-            "CRITICAL: At the very end of your response, you MUST provide exactly 3 provocative, deep academic cross-examination "
-            "questions that the user can ask next to interrogate this work. Format them STRICTLY as:\n"
+            "You are a distinguished senior academic peer reviewer, principal investigator, and research analyst. "
+            "Your synthesis must meet the highest standards of scientific rigor, clarity, and publication-ready depth.\n\n"
+            "### STRICT EDITORIAL & ATTRIBUTION RULES:\n\n"
+            "1. STRICT ATTRIBUTION OF NOVELTY VS. PRIOR ART:\n"
+            "   - You must unambiguously distinguish between the authors' OWN NOVEL CONTRIBUTIONS (what the current paper designs, proves, benchmarks, or proposes) and PRIOR ART / CITED BASELINES.\n"
+            "   - If a source chunk is from the References, Bibliography, or Related Work section, or mentions well-known foundation models/frameworks (e.g., Llama, DeepSeek, BERT, GPT, Chameleon, Dnact, RT-H), NEVER claim that the current authors developed those models. You must explicitly identify them as 'Prior art cited by the authors' or 'Comparative baselines'.\n"
+            "   - Focus primarily on what the current paper introduces: their novel architecture, their proposed mathematical loss, their new dataset, or their empirical findings.\n\n"
+            "2. ZERO CONVERSATIONAL FLUFF OR THROAT-CLEARING:\n"
+            "   - NEVER start with weak meta-language such as 'The retrieved document excerpts highlight...', 'Based on the provided documents...', 'Here are the central contributions:', or 'According to the context...'.\n"
+            "   - Open immediately with an authoritative, substantive thesis statement synthesizing the core breakthrough or finding.\n\n"
+            "3. DECENT, STRUCTURED SCHOLARLY ARCHITECTURE:\n"
+            "   Structure your response with clear, dignified academic headings:\n"
+            "   - **Executive Synthesis**: A sharp 1-2 sentence distillation of the primary contribution.\n"
+            "   - **Core Methodological Innovations**: Distinct, detailed breakdowns of the proposed techniques, algorithms, or mechanisms.\n"
+            "   - **Empirical Validation & Benchmark Results**: Specific quantitative metrics, benchmarks, speedups, or comparative baselines reported in the text.\n"
+            "   - **Contextual Prior Art & Baselines**: Accurate demarcation of how the work compares against cited existing approaches.\n"
+            "   - **Critical Limitations & Nuance**: Concrete assumptions, failure modes, or computational bounds acknowledged by the authors.\n\n"
+            "4. CITATIONS & INTEGRITY:\n"
+            "   - Support factual claims with clean, bracketed citations: `[PaperName, Page X]` or `[Page X]`.\n"
+            "   - Never truncate filenames with ellipses `...` inside citation brackets.\n\n"
+            "5. INTERACTIVE CROSS-EXAMINATION QUESTIONS:\n"
+            "   - At the very end of your response, provide exactly 3 provocative, deep graduate-level cross-examination questions that challenge the methodology, scalability, or validity.\n"
+            "   - Format them strictly as:\n"
             "---CROSS-QUESTIONS---\n"
             "- [Question 1]\n"
             "- [Question 2]\n"
@@ -252,8 +274,9 @@ class LLMService:
             f"{context_str}\n"
             f"---------------------------\n\n"
             f"{f'Recent Conversation History:\n{history_str}\n' if history_str else ''}"
-            f"User Question: {query}\n\n"
-            f"Provide a comprehensive, well-structured explanation with bullet points and bold highlights where appropriate. Always include citations for claims based on the excerpts."
+            f"User Inquiry: {query}\n\n"
+            f"Synthesize an authoritative, rigorously structured academic answer following all guidelines. "
+            f"Ensure strict differentiation between novel contributions vs. cited baselines."
         )
 
         try:
@@ -270,7 +293,15 @@ class LLMService:
                     cleaned = re.sub(r'^[\s\-\*\d\.\)]+', '', line).strip()
                     if len(cleaned) > 5 and len(cleaned) < 160:
                         cross_questions.append(cleaned)
-            
+
+            # Strip any accidental leading filler phrases
+            answer = re.sub(
+                r'^(?:(?:The|From the)\s+retrieved\s+document\s+excerpts\s+(?:highlight|indicate|show|detail)[^.\n]*[.\n]+(?:\s*Here\s+are\s+the\s+central\s+contributions:?)?|Based\s+on\s+the\s+provided\s+(?:documents|excerpts|context)[^.\n]*[.\n]+|According\s+to\s+the\s+(?:provided|retrieved)\s+(?:documents|excerpts)[^.\n]*[.\n]+|Here\s+are\s+the\s+central\s+contributions:?\s*)+',
+                '',
+                answer,
+                flags=re.IGNORECASE
+            ).strip()
+
             if not cross_questions:
                 cross_questions = default_cross_questions
 
