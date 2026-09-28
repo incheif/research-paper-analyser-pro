@@ -1,4 +1,4 @@
-/* Monochromatic Minimalist Newspaper Style */
+/* Monochromatic Minimalist Newspaper Style & ChatGPT Focus Mode */
 
 .wrapper {
   min-height: 100vh;
@@ -47,21 +47,19 @@
 .mainMasthead {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px 24px 16px 24px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  text-align: center;
 }
 
 .mastheadLogoGroup {
   cursor: pointer;
-  text-align: left;
 }
 
 .newspaperLogo {
   font-family: var(--font-headline);
-  font-size: 2.2rem;
+  font-size: 2.1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--ink-heavy);
@@ -72,15 +70,39 @@
 .newspaperTagline {
   font-family: var(--font-reading);
   font-style: italic;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   color: var(--ink-secondary);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
-.mastheadActions {
+/* View Mode Selector Switcher */
+.viewModeNav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  border: 1px solid var(--rule-border);
+  background: var(--bg-surface);
+}
+
+.viewModeBtn {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--ink-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.viewModeBtn:hover {
+  color: var(--ink-heavy);
+  background: var(--bg-subtle);
+}
+.viewModeBtnActive {
+  background: var(--ink-heavy) !important;
+  color: var(--bg-surface) !important;
 }
 
 /* Main Container */
@@ -88,19 +110,19 @@
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
-  padding: 36px 24px;
+  padding: 24px 24px 48px 24px;
   flex: 1;
 }
 
-/* Upload Hero (Empty State) */
+/* Upload Hero (Multi-file Drag & Drop) */
 .uploadHero {
-  max-width: 780px;
+  max-width: 800px;
   margin: 40px auto;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
 .heroHeadline {
@@ -115,7 +137,7 @@
   font-family: var(--font-reading);
   font-size: 1.15rem;
   color: var(--ink-secondary);
-  max-width: 620px;
+  max-width: 650px;
   line-height: 1.65;
 }
 
@@ -153,11 +175,49 @@
   color: var(--ink-muted);
 }
 
+/* Multi-Paper Tab Strip (When Papers Are Loaded) */
+.multiPaperStrip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--rule-border);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.paperTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--rule-border);
+  background: var(--bg-surface);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.paperTab:hover {
+  border-color: var(--ink-heavy);
+  color: var(--ink-heavy);
+}
+.paperTabActive {
+  background: var(--ink-heavy) !important;
+  color: var(--bg-surface) !important;
+  border-color: var(--ink-heavy) !important;
+}
+
 /* Loaded Paper Article Header */
 .articleHeader {
   border-bottom: 2px solid var(--rule-heavy);
-  padding-bottom: 20px;
-  margin-bottom: 28px;
+  padding-bottom: 18px;
+  margin-bottom: 24px;
 }
 
 .articleCategory {
@@ -167,16 +227,16 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--ink-muted);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .articleHeadline {
   font-family: var(--font-headline);
-  font-size: 2.35rem;
+  font-size: 2.2rem;
   font-weight: 800;
   color: var(--ink-heavy);
   line-height: 1.2;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .bylineStrip {
@@ -184,8 +244,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding-top: 14px;
+  gap: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--rule-subtle);
   font-family: var(--font-ui);
   font-size: 0.82rem;
@@ -199,34 +259,27 @@
   color: var(--ink-primary);
 }
 
-.articleBadges {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Editorial 2-Column Grid (Story on Left, Co-Pilot on Right) */
+/* 1. Split Grid Layout */
 .editorialGrid {
   display: grid;
-  grid-template-columns: 1fr 390px;
-  gap: 36px;
+  grid-template-columns: 1fr 420px;
+  gap: 32px;
   align-items: start;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
   .editorialGrid {
     grid-template-columns: 1fr;
   }
 }
 
-/* Reading Story Column (Effortless Continuous Flow) */
+/* Story Column (Article Flow) */
 .storyColumn {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
 }
 
-/* Sticky Minimalist Section Jump Bar */
 .jumpNav {
   display: flex;
   align-items: center;
@@ -254,19 +307,18 @@
   background: var(--bg-subtle);
 }
 
-/* Editorial Story Section */
 .storySection {
   background: var(--bg-surface);
   border: 1px solid var(--rule-border);
-  padding: 32px 36px;
+  padding: 28px 32px;
 }
 
 .sectionHeading {
   font-family: var(--font-headline);
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--ink-heavy);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--rule-dark);
   display: flex;
@@ -300,20 +352,19 @@
   color: var(--ink-body);
 }
 
-/* Numbered Monochromatic Contributions */
 .contributionList {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   margin-top: 8px;
 }
 
 .contributionItem {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px dashed var(--rule-subtle);
 }
 .contributionItem:last-child {
@@ -327,7 +378,6 @@
   font-weight: 800;
   color: var(--ink-heavy);
   min-width: 28px;
-  letter-spacing: 0.05em;
 }
 
 .contributionText {
@@ -336,7 +386,6 @@
   color: var(--ink-body);
 }
 
-/* Callout Box (Limitations & Critical Notes) */
 .calloutBox {
   background: var(--bg-elevated);
   border-left: 3px solid var(--ink-heavy);
@@ -345,7 +394,6 @@
   font-family: var(--font-reading);
 }
 
-/* BibTeX Box */
 .bibtexBox {
   background: var(--bg-elevated);
   border: 1px solid var(--rule-border);
@@ -359,7 +407,7 @@
   overflow-y: auto;
 }
 
-/* Right Column: Research Co-Pilot Notes & Q&A */
+/* 2. Co-Pilot Column in Split Mode */
 .assistantColumn {
   position: sticky;
   top: 96px;
@@ -368,16 +416,95 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - 120px);
-  min-height: 600px;
+  min-height: 620px;
 }
 
+/* 3. ChatGPT Focus View (Dedicated Full-Screen Spacious View) */
+.chatgptFocusLayout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  min-height: calc(100vh - 160px);
+}
+
+@media (max-width: 900px) {
+  .chatgptFocusLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chatgptSidebar {
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-border);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: fit-content;
+}
+
+.sidebarTitle {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-heavy);
+  border-bottom: 1px solid var(--rule-dark);
+  padding-bottom: 6px;
+}
+
+.paperListNav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.paperNavItem {
+  text-align: left;
+  padding: 8px 10px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.paperNavItem:hover {
+  background: var(--bg-elevated);
+  color: var(--ink-heavy);
+}
+.paperNavItemActive {
+  background: var(--ink-heavy) !important;
+  color: var(--bg-surface) !important;
+  font-weight: 700;
+}
+
+.chatgptContainer {
+  background: var(--bg-surface);
+  border: 1px solid var(--rule-border);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+  min-height: 650px;
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Chat Header */
 .assistantHeader {
-  padding: 14px 18px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--rule-dark);
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-family: var(--font-ui);
+  background: var(--bg-surface);
 }
 
 .assistantTitle {
@@ -390,22 +517,22 @@
 
 .chatFeed {
   flex: 1;
-  padding: 18px;
+  padding: 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
 }
 
 .msgUser {
   align-self: flex-end;
-  max-width: 88%;
+  max-width: 82%;
   background: var(--bg-elevated);
   border: 1px solid var(--rule-border);
   color: var(--ink-heavy);
-  padding: 10px 14px;
+  padding: 12px 18px;
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.5;
 }
 
@@ -414,66 +541,87 @@
   width: 100%;
   background: var(--bg-page);
   border-left: 2px solid var(--ink-heavy);
-  padding: 12px 14px;
+  padding: 16px 20px;
   color: var(--ink-body);
   font-family: var(--font-reading);
-  font-size: 0.95rem;
-  line-height: 1.65;
+  font-size: 1.02rem;
+  line-height: 1.75;
 }
 
 .msgMeta {
   font-family: var(--font-ui);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--ink-muted);
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-/* Quick Inquiry Chips */
-.quickQuestions {
-  padding: 10px 16px;
-  border-top: 1px solid var(--rule-subtle);
-  background: var(--bg-page);
+/* Cross-Questions Follow-Up Section */
+.crossQuestionsBox {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--rule-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crossQuestionsLabel {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.crossQuestionsList {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.quickQuestionChip {
+.crossQuestionPill {
   text-align: left;
   background: var(--bg-surface);
   border: 1px solid var(--rule-border);
-  padding: 6px 10px;
+  padding: 8px 12px;
   font-family: var(--font-ui);
-  font-size: 0.74rem;
-  color: var(--ink-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-primary);
   cursor: pointer;
   transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.quickQuestionChip:hover {
+.crossQuestionPill:hover {
+  background: var(--ink-heavy);
+  color: var(--bg-surface);
   border-color: var(--ink-heavy);
-  color: var(--ink-heavy);
-  background: var(--bg-elevated);
 }
 
 /* Chat Input Bar */
 .chatInputForm {
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-top: 1px solid var(--rule-dark);
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  background: var(--bg-surface);
 }
 
 .chatInputField {
   flex: 1;
-  padding: 9px 12px;
+  padding: 11px 14px;
   background: var(--bg-input);
   border: 1px solid var(--rule-border);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--ink-heavy);
   outline: none;
 }

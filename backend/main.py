@@ -28,10 +28,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Store for papers and multi-document collections
 PAPERS_STORE: Dict[str, Dict[str, Any]] = {}
 
 class ChatRequest(BaseModel):
-    paper_id: str
+    paper_id: Optional[str] = "all"
     message: str
     history: Optional[List[Dict[str, str]]] = []
     provider: Optional[str] = "gemini"
@@ -39,11 +40,10 @@ class ChatRequest(BaseModel):
     api_key: Optional[str] = None
 
 class ExportRequest(BaseModel):
-    paper_id: str
+    paper_id: Optional[str] = "all"
     chat_history: Optional[List[Dict[str, str]]] = []
 
 def resolve_credentials(header_gemini: Optional[str], header_groq: Optional[str], body_key: Optional[str] = None):
-    # Determine which key was sent
     candidate = (body_key or "").strip()
     gemini_key = (header_gemini or os.environ.get("GOOGLE_API_KEY", "")).strip()
     groq_key = (header_groq or os.environ.get("GROQ_API_KEY", "")).strip()
@@ -77,54 +77,159 @@ async def health_check():
     }
 
 @app.post("/api/upload")
-async def upload_paper(
-    file: UploadFile = File(...),
+async def upload_papers(
+    files: Optional[List[UploadFile]] = File(None),
+    file: Optional[UploadFile] = File(None),
     x_gemini_key: Optional[str] = Header(None),
     x_groq_key: Optional[str] = Header(None),
     client_api_key: Optional[str] = Form(None)
 ):
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-
-    file_bytes = await file.read()
-    if len(file_bytes) == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-
-    paper_id = str(uuid.uuid4())[:8]
-
-    pages_data = PDFParser.extract_text_by_pages(file_bytes)
-    if not pages_data or all(len(p["text"]) == 0 for p in pages_data):
-        raise HTTPException(status_code=400, detail="Unable to extract text from this PDF.")
-
-    meta = PDFParser.heuristic_paper_metadata(pages_data, file.filename)
-    chunks = PDFParser.create_chunks(pages_data, chunk_size=900, chunk_overlap=150)
+    upload_list = files or ([file] if file else [])
+    if not upload_list:
+        raise HTTPException(status_code=400, detail="No PDF files uploaded.")
 
     gemini_key, groq_key = resolve_credentials(x_gemini_key, x_groq_key, client_api_key)
-    vector_index = VectorIndex(chunks, google_api_key=gemini_key)
-
     llm = LLMService(google_api_key=gemini_key, groq_api_key=groq_key)
-    sample_text = "\n\n".join([f"--- Page {p['page']} ---\n{p['text']}" for p in pages_data[:6]])
-    breakdown = llm.analyze_paper(meta, sample_text)
 
-    PAPERS_STORE[paper_id] = {
-        "paper_id": paper_id,
-        "filename": file.filename,
-        "file_size": len(file_bytes),
-        "total_pages": len(pages_data),
-        "total_chunks": len(chunks),
-        "metadata": meta,
-        "breakdown": breakdown,
-        "chunks": chunks,
-        "vector_index": vector_index,
-        "uploaded_at": time.time()
-    }
+    processed_papers = []
+    all_chunks = []
+
+    for f in upload_list:
+        if not f.filename.lower().endswith(".pdf"):
+            continue
+
+        file_bytes = await f.read()
+        if len(file_bytes) == 0:
+            continue
+
+        paper_id = str(uuid.uuid4())[:8]
+        pages_data = PDFParser.extract_text_by_pages(file_bytes)
+        if not pages_data or all(len(p["text"]) == 0 for p in pages_data):
+            continue
+
+        meta = PDFParser.heuristic_paper_metadata(pages_data, f.filename)
+        chunks = PDFParser.create_chunks(
+            pages_data, 
+            chunk_size=900, 
+            chunk_overlap=150, 
+            filename=f.filename, 
+            paper_id=paper_id
+        )
+
+        vector_index = VectorIndex(chunks, google_api_key=gemini_key)
+        sample_text = "\n\n".join([f"--- Page {p['page']} ---\n{p['text']}" for p in pages_data[:6]])
+        breakdown = llm.analyze_paper(meta, sample_text)
+
+        paper_obj = {
+            "paper_id": paper_id,
+            "filename": f.filename,
+            "file_size": len(file_bytes),
+            "total_pages": len(pages_data),
+            "total_chunks": len(chunks),
+            "metadata": meta,
+            "breakdown": breakdown,
+            "chunks": chunks,
+            "vector_index": vector_index,
+            "uploaded_at": time.time()
+        }
+
+        PAPERS_STORE[paper_id] = paper_obj
+        processed_papers.append(paper_obj)
+        all_chunks.extend(chunks)
+
+    if not processed_papers:
+        raise HTTPException(status_code=400, detail="Could not extract readable text from any uploaded PDF.")
+
+    # If multiple papers are present, create or update a unified cross-corpus session "all"
+    if len(processed_papers) > 1:
+        corpus_summary = (
+            f"This collective dossier synthesizes {len(processed_papers)} academic research papers: "
+            + ", ".join([f'"{p["breakdown"].get("title", p["filename"])}"' for p in processed_papers])
+            + ". You can inquire about comparative methodology, cross-paper benchmark comparisons, or collective contributions."
+        )
+
+        corpus_breakdown = {
+            "title": f"Corpus Synthesis & Comparative Review ({len(processed_papers)} Papers)",
+            "authors": "Multiple Academic Investigators Across Documents",
+            "publication_venue": "Multi-Document Research Dossier",
+            "executive_summary": corpus_summary,
+            "key_contributions": [
+                f'[{p["filename"]}] {p["breakdown"].get("title", p["filename"])}: ' + (p["breakdown"].get("key_contributions", ["Key breakthrough"])[0])
+                for p in processed_papers
+            ],
+            "methodology": (
+                "Comparative cross-paper analytical evaluation examining theoretical paradigms, "
+                "algorithmic architectures, and experimental implementations across all uploaded manuscripts."
+            ),
+            "results_and_benchmarks": (
+                "Aggregate empirical metrics compiled across all uploaded manuscripts. "
+                "Ask specific comparative questions to contrast baseline evaluations."
+            ),
+            "limitations": (
+                "Heterogeneous evaluation domains, differing experimental protocols, and variable dataset distributions "
+                "between independent research publications."
+            ),
+            "bibtex": "\n\n".join([p["breakdown"].get("bibtex", "") for p in processed_papers]),
+            "suggested_questions": [
+                "Compare the core methodologies and architectural differences between these papers.",
+                "How do the empirical benchmark results compare between the papers?",
+                "What contrasting assumptions or limitations are present across these works?",
+                "Synthesize the collective breakthroughs and future directions from all papers."
+            ]
+        }
+
+        PAPERS_STORE["all"] = {
+            "paper_id": "all",
+            "filename": f"All Papers ({len(processed_papers)} Documents)",
+            "file_size": sum(p["file_size"] for p in processed_papers),
+            "total_pages": sum(p["total_pages"] for p in processed_papers),
+            "total_chunks": len(all_chunks),
+            "metadata": {"title": f"Corpus Synthesis ({len(processed_papers)} Papers)", "abstract": corpus_summary},
+            "breakdown": corpus_breakdown,
+            "chunks": all_chunks,
+            "vector_index": VectorIndex(all_chunks, google_api_key=gemini_key),
+            "uploaded_at": time.time()
+        }
 
     return {
-        "paper_id": paper_id,
-        "filename": file.filename,
-        "total_pages": len(pages_data),
-        "total_chunks": len(chunks),
-        "breakdown": breakdown
+        "papers": [
+            {
+                "paper_id": p["paper_id"],
+                "filename": p["filename"],
+                "total_pages": p["total_pages"],
+                "total_chunks": p["total_chunks"],
+                "breakdown": p["breakdown"]
+            }
+            for p in processed_papers
+        ],
+        "active_paper_id": "all" if len(processed_papers) > 1 else processed_papers[0]["paper_id"],
+        "has_multiple": len(processed_papers) > 1
+    }
+
+@app.get("/api/papers")
+async def list_papers():
+    return [
+        {
+            "paper_id": p["paper_id"],
+            "filename": p["filename"],
+            "title": p["breakdown"].get("title", p["filename"]),
+            "total_pages": p["total_pages"],
+            "uploaded_at": p["uploaded_at"]
+        }
+        for pid, p in PAPERS_STORE.items() if pid != "all"
+    ]
+
+@app.get("/api/paper/{paper_id}")
+async def get_paper(paper_id: str):
+    if paper_id not in PAPERS_STORE:
+        raise HTTPException(status_code=404, detail="Paper not found.")
+    p = PAPERS_STORE[paper_id]
+    return {
+        "paper_id": p["paper_id"],
+        "filename": p["filename"],
+        "total_pages": p["total_pages"],
+        "total_chunks": p["total_chunks"],
+        "breakdown": p["breakdown"]
     }
 
 @app.post("/api/chat")
@@ -133,14 +238,20 @@ async def chat_with_paper(
     x_gemini_key: Optional[str] = Header(None),
     x_groq_key: Optional[str] = Header(None)
 ):
-    if req.paper_id not in PAPERS_STORE:
-        raise HTTPException(status_code=404, detail="Paper not found or session expired.")
+    target_id = req.paper_id or "all"
+    if target_id not in PAPERS_STORE:
+        if "all" in PAPERS_STORE:
+            target_id = "all"
+        elif PAPERS_STORE:
+            target_id = next(iter(PAPERS_STORE))
+        else:
+            raise HTTPException(status_code=404, detail="No active paper session found. Please upload a paper.")
 
-    paper = PAPERS_STORE[req.paper_id]
+    paper = PAPERS_STORE[target_id]
     vector_index: VectorIndex = paper["vector_index"]
     start_time = time.time()
 
-    top_chunks = vector_index.query(req.message, top_k=4)
+    top_chunks = vector_index.query(req.message, top_k=5)
     gemini_key, groq_key = resolve_credentials(x_gemini_key, x_groq_key, req.api_key)
 
     llm = LLMService(
@@ -160,20 +271,24 @@ async def chat_with_paper(
     elapsed = round(time.time() - start_time, 2)
     result["response_time"] = elapsed
     result["model_used"] = req.model
+    result["target_paper_id"] = target_id
     return result
 
 @app.post("/api/export")
 async def export_analysis(req: ExportRequest):
-    if req.paper_id not in PAPERS_STORE:
+    target_id = req.paper_id or "all"
+    if target_id not in PAPERS_STORE:
+        target_id = next(iter(PAPERS_STORE)) if PAPERS_STORE else None
+    if not target_id:
         raise HTTPException(status_code=404, detail="Paper not found.")
 
-    paper = PAPERS_STORE[req.paper_id]
+    paper = PAPERS_STORE[target_id]
     bd = paper["breakdown"]
     title = bd.get("title", paper["filename"])
     
     md_lines = [
         f"# Research Paper Analysis: {title}",
-        f"**File:** `{paper['filename']}` | **Pages:** {paper['total_pages']}",
+        f"**Document:** `{paper['filename']}` | **Pages:** {paper['total_pages']}",
         "",
         "## Executive Summary",
         bd.get("executive_summary", "N/A"),
@@ -196,16 +311,33 @@ async def export_analysis(req: ExportRequest):
         "",
         "## BibTeX Citation",
         "```bibtex",
-        bd.get("bibtex", ""),
+        bd.get("bibtex", "@article{paper, title={Paper}}"),
         "```"
     ])
+
+    if req.chat_history:
+        md_lines.extend([
+            "",
+            "## Scholarly Co-Pilot Transcript & Cross-Questions",
+            ""
+        ])
+        for msg in req.chat_history:
+            role = msg.get("role", "user").capitalize()
+            md_lines.append(f"**{role}:** {msg.get('content', '')}\n")
 
     report_content = "\n".join(md_lines)
     return PlainTextResponse(
         content=report_content,
         media_type="text/markdown",
-        headers={"Content-Disposition": f"attachment; filename=analysis_{req.paper_id}.md"}
+        headers={"Content-Disposition": f"attachment; filename=Analysis_{target_id}.md"}
     )
+
+@app.delete("/api/paper/{paper_id}")
+async def delete_paper(paper_id: str):
+    if paper_id in PAPERS_STORE:
+        del PAPERS_STORE[paper_id]
+        return {"status": "success", "message": f"Paper {paper_id} removed."}
+    return {"status": "not_found"}
 
 if __name__ == "__main__":
     import uvicorn

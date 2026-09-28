@@ -21,7 +21,6 @@ class LLMService:
         genai.configure(api_key=self.google_api_key)
         
         clean_name = model_name.replace("models/", "").strip()
-        # Map retired or legacy model identifiers directly to the active, current Gemini models
         if "1.5" in clean_name or "2.0" in clean_name or not clean_name:
             clean_name = "gemini-2.5-flash"
 
@@ -67,11 +66,9 @@ class LLMService:
     def generate(self, prompt: str, system_prompt: str = "", model: Optional[str] = None) -> str:
         chosen_model = model or self.preferred_model
 
-        # Only route to Groq if a valid Groq API key is present AND Groq model is requested
         if self.groq_api_key and self.groq_api_key.startswith("gsk_") and ("llama" in chosen_model.lower() or self.preferred_provider == "groq"):
             return self._call_groq(prompt, system_prompt, chosen_model)
 
-        # Default to Google Gemini
         if self.google_api_key:
             return self._call_gemini(prompt, system_prompt, chosen_model)
 
@@ -186,13 +183,19 @@ class LLMService:
         if not retrieved_chunks:
             return {
                 "answer": "The answer could not be found in the uploaded documents as no relevant sections were matched.",
-                "citations": []
+                "citations": [],
+                "cross_questions": [
+                    "Could you rephrase the question using different keywords?",
+                    "What specific section of the paper should I search?",
+                    "Are there other metrics or concepts discussed in the abstract?"
+                ]
             }
 
         context_parts = []
         for c in retrieved_chunks:
+            doc_tag = f"[{c.get('filename')}, Page {c.get('page')}]" if c.get('filename') else f"[Page {c.get('page')}]"
             context_parts.append(
-                f"[Source Chunk #{c.get('chunk_id')} | Page {c.get('page')}]:\n{c.get('text')}\n"
+                f"Source Chunk #{c.get('chunk_id')} | {doc_tag}:\n{c.get('text')}\n"
             )
         context_str = "\n".join(context_parts)
 
@@ -202,27 +205,41 @@ class LLMService:
             citations.append({
                 "page": c.get("page", 1),
                 "chunk_id": c.get("chunk_id", 1),
+                "filename": c.get("filename", ""),
                 "snippet": snippet,
                 "relevance_score": round(c.get("score", 0.0), 3)
             })
+
+        default_cross_questions = [
+            "How do these findings compare with existing baselines?",
+            "What are the computational bottlenecks during inference?",
+            "Could this approach be adapted for multi-modal or real-time domains?"
+        ]
 
         if not self.google_api_key and not self.groq_api_key:
             primary_chunk = retrieved_chunks[0]
             answer = (
                 f"**Retrieved Insight from Page {primary_chunk.get('page')}:**\n\n"
                 f"> \"{primary_chunk.get('text')[:350]}...\"\n\n"
-                f"💡 *Note: To unlock live conversational reasoning, ensure your API key is configured.*"
+                f"💡 *Note: To unlock live conversational reasoning, enter your API key in the top bar.*"
             )
             return {
                 "answer": answer,
-                "citations": citations
+                "citations": citations,
+                "cross_questions": default_cross_questions
             }
 
         system_prompt = (
-            "You are a rigorous, academic research assistant. Use ONLY the provided context excerpts to answer the question. "
-            "Whenever you assert a factual claim, cite the exact source using bracketed notation like `[Page X]` or `[p. X]`. "
-            "If the information is not present in the excerpts, clearly state: "
-            "'The answer could not be found in the uploaded documents.'"
+            "You are a distinguished academic research assistant and critical reviewer. "
+            "Use ONLY the provided context excerpts to answer the question with thorough, precise reasoning. "
+            "Whenever you assert a factual claim, cite the exact source using bracketed notation like `[Page X]` "
+            "or `[Filename, Page X]`.\n\n"
+            "CRITICAL: At the very end of your response, you MUST provide exactly 3 provocative, deep academic cross-examination "
+            "questions that the user can ask next to interrogate this work. Format them STRICTLY as:\n"
+            "---CROSS-QUESTIONS---\n"
+            "- [Question 1]\n"
+            "- [Question 2]\n"
+            "- [Question 3]"
         )
 
         history_str = ""
@@ -236,18 +253,35 @@ class LLMService:
             f"---------------------------\n\n"
             f"{f'Recent Conversation History:\n{history_str}\n' if history_str else ''}"
             f"User Question: {query}\n\n"
-            f"Provide a comprehensive, well-structured explanation with bullet points and bold highlights where appropriate. Always include `[Page X]` citations for claims based on the excerpts."
+            f"Provide a comprehensive, well-structured explanation with bullet points and bold highlights where appropriate. Always include citations for claims based on the excerpts."
         )
 
         try:
             chosen_model = model or "gemini-2.5-flash"
-            answer = self.generate(prompt, system_prompt, chosen_model)
+            raw_answer = self.generate(prompt, system_prompt, chosen_model)
+            
+            answer = raw_answer
+            cross_questions = []
+            if "---CROSS-QUESTIONS---" in raw_answer:
+                parts = raw_answer.split("---CROSS-QUESTIONS---")
+                answer = parts[0].strip()
+                lines = parts[1].strip().split("\n")
+                for line in lines:
+                    cleaned = re.sub(r'^[\s\-\*\d\.\)]+', '', line).strip()
+                    if len(cleaned) > 5 and len(cleaned) < 160:
+                        cross_questions.append(cleaned)
+            
+            if not cross_questions:
+                cross_questions = default_cross_questions
+
             return {
                 "answer": answer,
-                "citations": citations
+                "citations": citations,
+                "cross_questions": cross_questions[:3]
             }
         except Exception as e:
             return {
                 "answer": f"Error generating answer: {str(e)}.",
-                "citations": citations
+                "citations": citations,
+                "cross_questions": default_cross_questions
             }
