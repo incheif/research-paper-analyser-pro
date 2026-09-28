@@ -20,11 +20,15 @@ class LLMService:
         import google.generativeai as genai
         genai.configure(api_key=self.google_api_key)
         
-        clean_name = model_name.replace("models/", "")
-        if "1.5" in clean_name:
+        clean_name = model_name.replace("models/", "").strip()
+        # Map retired or legacy model identifiers directly to the active, current Gemini models
+        if "1.5" in clean_name or "2.0" in clean_name or not clean_name:
             clean_name = "gemini-2.5-flash"
 
-        candidate_models = [clean_name, "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"]
+        candidate_models = []
+        for m in [clean_name, "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"]:
+            if m and m not in candidate_models:
+                candidate_models.append(m)
         
         last_error = None
         for candidate in candidate_models:
@@ -34,7 +38,8 @@ class LLMService:
                     system_instruction=system_prompt if system_prompt else None
                 )
                 response = model.generate_content(prompt)
-                return response.text
+                if response and response.text:
+                    return response.text
             except Exception as e:
                 last_error = e
                 print(f"[LLMService] Gemini model '{candidate}' attempt failed: {e}")
@@ -62,9 +67,11 @@ class LLMService:
     def generate(self, prompt: str, system_prompt: str = "", model: Optional[str] = None) -> str:
         chosen_model = model or self.preferred_model
 
+        # Only route to Groq if a valid Groq API key is present AND Groq model is requested
         if self.groq_api_key and self.groq_api_key.startswith("gsk_") and ("llama" in chosen_model.lower() or self.preferred_provider == "groq"):
             return self._call_groq(prompt, system_prompt, chosen_model)
 
+        # Default to Google Gemini
         if self.google_api_key:
             return self._call_gemini(prompt, system_prompt, chosen_model)
 
@@ -103,18 +110,18 @@ class LLMService:
             f'  "methodology": "Detailed breakdown of the theoretical framework, proposed architecture, algorithms, and training/evaluation setup",\n'
             f'  "results_and_benchmarks": "Key performance metrics, benchmark datasets, baseline comparisons, and statistical findings",\n'
             f'  "limitations": "Critical limitations, computational bottlenecks, edge cases, and future directions identified",\n'
-            f'  "bibtex": "@article{{paper,\\n  title={{{{{title}}}}},\\n  ...\\n}}",\n'
+            f'  "bibtex": "@article{{...,\\n  title={{{title}}},\\n  ...\\n}}",\n'
             f'  "suggested_questions": [\n'
-            f'    "How does the proposed method compare to existing baselines?",\n'
+            f'    "What is the core problem this paper aims to solve?",\n'
             f'    "What are the main assumptions or constraints of this work?",\n'
-            f'    "Could this architecture be adapted for real-time inference?"\n'
+            f'    "How do the experimental benchmarks compare to baselines?"\n'
             f'  ]\n'
             f'}}\n'
-            f"Ensure the output is valid JSON without codeblock formatting if possible, or inside ```json ```."
+            f"Ensure the output is strictly valid JSON."
         )
 
         try:
-            raw_response = self.generate(prompt, system_prompt, model="gemini-2.5-flash")
+            raw_response = self.generate(prompt, system_prompt, "gemini-2.5-flash")
             cleaned = re.sub(r'^```json\s*', '', raw_response.strip(), flags=re.MULTILINE)
             cleaned = re.sub(r'```$', '', cleaned.strip(), flags=re.MULTILINE)
             data = json.loads(cleaned)
