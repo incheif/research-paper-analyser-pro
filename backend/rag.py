@@ -1,17 +1,15 @@
 import os
 import math
 import re
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 import numpy as np
 
 class VectorIndex:
     def __init__(self, chunks: List[Dict[str, Any]], google_api_key: str = None):
         self.chunks = chunks
-        self.google_api_key = google_api_key or os.environ.get("GOOGLE_API_KEY", "")
+        self.google_api_key = (google_api_key or os.environ.get("GOOGLE_API_KEY", "")).strip()
         self.embeddings = []
         self.use_google = bool(self.google_api_key)
-        
-        # Build index
         self._build_index()
 
     def _build_index(self):
@@ -23,32 +21,30 @@ class VectorIndex:
                 import google.generativeai as genai
                 genai.configure(api_key=self.google_api_key)
                 
-                # Batch embed chunks with text-embedding-004
                 texts = [c["text"] for c in self.chunks]
-                # Embed in batches of 20 to avoid payload limits
                 all_vectors = []
-                batch_size = 20
+                batch_size = 10
+                
+                embed_model = "models/gemini-embedding-001"
                 for i in range(0, len(texts), batch_size):
                     batch = texts[i:i + batch_size]
                     result = genai.embed_content(
-                        model="models/text-embedding-004",
+                        model=embed_model,
                         content=batch,
                         task_type="retrieval_document"
                     )
                     all_vectors.extend(result["embedding"])
                 
                 self.embeddings = np.array(all_vectors, dtype=np.float32)
-                # Normalize for cosine similarity
                 norms = np.linalg.norm(self.embeddings, axis=1, keepdims=True)
                 norms[norms == 0] = 1e-10
                 self.embeddings = self.embeddings / norms
+                print(f"[VectorIndex] Embedded {len(texts)} chunks using {embed_model}")
                 return
             except Exception as e:
-                # If Google embeddings fail (quota, network, or invalid key), fall back gracefully
                 print(f"[VectorIndex] Google embedding failed: {e}. Falling back to BM25/TF-IDF.")
                 self.use_google = False
 
-        # Fallback: TF-IDF / Term-Frequency Vectorizer
         self._build_tfidf_index()
 
     def _tokenize(self, text: str) -> List[str]:
@@ -72,15 +68,12 @@ class VectorIndex:
             for t in set(tokens):
                 df[t] = df.get(t, 0) + 1
 
-        # Compute IDF
         for term, freq in df.items():
             self.idf[term] = math.log((self.doc_count + 1) / (freq + 0.5)) + 1.0
 
-        # Term-to-index mapping
         self.vocab = {term: idx for idx, term in enumerate(self.idf.keys())}
         dim = len(self.vocab)
 
-        # Build sparse/dense vectors
         vectors = np.zeros((self.doc_count, dim), dtype=np.float32)
         for i, (tokens, tf) in enumerate(doc_tfs):
             for t, count in tf.items():
@@ -93,9 +86,6 @@ class VectorIndex:
         self.doc_vectors = vectors / norms
 
     def query(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Retrieve top_k chunks matching query_text.
-        """
         if not self.chunks:
             return []
 
@@ -104,7 +94,7 @@ class VectorIndex:
                 import google.generativeai as genai
                 genai.configure(api_key=self.google_api_key)
                 res = genai.embed_content(
-                    model="models/text-embedding-004",
+                    model="models/gemini-embedding-001",
                     content=query_text,
                     task_type="retrieval_query"
                 )
@@ -123,9 +113,8 @@ class VectorIndex:
                     results.append(chunk)
                 return results
             except Exception as e:
-                print(f"[VectorIndex] Google query embedding failed: {e}. Falling back to TF-IDF.")
-        
-        # TF-IDF Retrieval
+                print(f"[VectorIndex] Query embedding failed: {e}. Using TF-IDF.")
+
         tokens = self._tokenize(query_text)
         if not self.vocab or not tokens:
             return [dict(c, score=0.5) for c in self.chunks[:top_k]]

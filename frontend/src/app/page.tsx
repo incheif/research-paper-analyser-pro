@@ -76,7 +76,7 @@ export default function Home() {
   const [showApiModal, setShowApiModal] = useState(false);
   const [geminiKey, setGeminiKey] = useState('');
   const [groqKey, setGroqKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
   const [copiedBibtex, setCopiedBibtex] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export default function Home() {
   useEffect(() => {
     const savedGemini = localStorage.getItem('paperscope_gemini_key') || '';
     const savedGroq = localStorage.getItem('paperscope_groq_key') || '';
-    const savedModel = localStorage.getItem('paperscope_model') || 'gemini-1.5-flash';
+    const savedModel = localStorage.getItem('paperscope_model') || 'gemini-2.5-flash';
     const savedTheme = (localStorage.getItem('paperscope_theme') as 'light' | 'dark') || 'light';
     setGeminiKey(savedGemini);
     setGroqKey(savedGroq);
@@ -370,7 +370,7 @@ export default function Home() {
             <span>ISSUE 2026</span>
             <span>•</span>
             <span className="badge badge-editorial">
-              {selectedModel.includes('llama') ? 'Groq Llama 3.3' : 'Gemini 1.5 Flash'}
+              {selectedModel.includes('llama') ? 'Groq Llama 3.3' : 'Gemini 2.5 Flash'}
             </span>
           </div>
 
@@ -772,7 +772,7 @@ export default function Home() {
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
               >
-                <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Ultra Fast)</option>
+                <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Ultra Fast)</option>
                 <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep Reasoning)</option>
                 <option value="gemini-2.0-flash">Google Gemini 2.0 Flash</option>
                 <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B (High-Speed)</option>

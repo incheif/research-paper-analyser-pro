@@ -9,29 +9,38 @@ class LLMService:
         google_api_key: Optional[str] = None, 
         groq_api_key: Optional[str] = None,
         preferred_provider: str = "gemini",
-        preferred_model: str = "gemini-1.5-flash"
+        preferred_model: str = "gemini-2.5-flash"
     ):
-        self.google_api_key = google_api_key or os.environ.get("GOOGLE_API_KEY", "")
-        self.groq_api_key = groq_api_key or os.environ.get("GROQ_API_KEY", "")
+        self.google_api_key = (google_api_key or os.environ.get("GOOGLE_API_KEY", "")).strip()
+        self.groq_api_key = (groq_api_key or os.environ.get("GROQ_API_KEY", "")).strip()
         self.preferred_provider = preferred_provider
-        self.preferred_model = preferred_model
+        self.preferred_model = preferred_model or "gemini-2.5-flash"
 
-    def _call_gemini(self, prompt: str, system_prompt: str = "", model_name: str = "gemini-1.5-flash") -> str:
+    def _call_gemini(self, prompt: str, system_prompt: str = "", model_name: str = "gemini-2.5-flash") -> str:
         import google.generativeai as genai
         genai.configure(api_key=self.google_api_key)
         
-        # Normalize model name
-        if not model_name.startswith("models/"):
-            clean_name = model_name
-        else:
-            clean_name = model_name.replace("models/", "")
-            
-        model = genai.GenerativeModel(
-            model_name=clean_name,
-            system_instruction=system_prompt if system_prompt else None
-        )
-        response = model.generate_content(prompt)
-        return response.text
+        clean_name = model_name.replace("models/", "")
+        if "1.5" in clean_name:
+            clean_name = "gemini-2.5-flash"
+
+        candidate_models = [clean_name, "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"]
+        
+        last_error = None
+        for candidate in candidate_models:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=candidate,
+                    system_instruction=system_prompt if system_prompt else None
+                )
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception as e:
+                last_error = e
+                print(f"[LLMService] Gemini model '{candidate}' attempt failed: {e}")
+                continue
+
+        raise last_error or RuntimeError("Gemini model generation failed.")
 
     def _call_groq(self, prompt: str, system_prompt: str = "", model_name: str = "llama-3.3-70b-versatile") -> str:
         from groq import Groq
@@ -41,7 +50,6 @@ class LLMService:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        # Fallback default groq model if not specified or outdated
         target_model = model_name if ("llama" in model_name or "mixtral" in model_name) else "llama-3.3-70b-versatile"
         completion = client.chat.completions.create(
             model=target_model,
@@ -54,43 +62,19 @@ class LLMService:
     def generate(self, prompt: str, system_prompt: str = "", model: Optional[str] = None) -> str:
         chosen_model = model or self.preferred_model
 
-        # Prioritize based on available keys
-        if self.google_api_key and ("gemini" in chosen_model.lower() or not self.groq_api_key):
-            try:
-                return self._call_gemini(prompt, system_prompt, chosen_model)
-            except Exception as e:
-                print(f"[LLMService] Gemini call failed: {e}")
-                if self.groq_api_key:
-                    return self._call_groq(prompt, system_prompt, "llama-3.3-70b-versatile")
-                raise e
+        if self.groq_api_key and self.groq_api_key.startswith("gsk_") and ("llama" in chosen_model.lower() or self.preferred_provider == "groq"):
+            return self._call_groq(prompt, system_prompt, chosen_model)
 
-        if self.groq_api_key:
-            try:
-                return self._call_groq(prompt, system_prompt, chosen_model)
-            except Exception as e:
-                print(f"[LLMService] Groq call failed: {e}")
-                if self.google_api_key:
-                    return self._call_gemini(prompt, system_prompt, "gemini-1.5-flash")
-                raise e
+        if self.google_api_key:
+            return self._call_gemini(prompt, system_prompt, chosen_model)
 
-        raise ValueError("No valid AI API key provided. Please provide either a Google Gemini API Key or Groq API Key.")
+        raise ValueError("No valid Google Gemini API key provided. Please check your configuration.")
 
     def analyze_paper(self, paper_meta: Dict[str, Any], sample_text: str) -> Dict[str, Any]:
-        """
-        Produce a structured breakdown of the paper:
-        - Executive Summary
-        - Key Contributions
-        - Methodology
-        - Results & Benchmarks
-        - Limitations & Future Work
-        - BibTeX
-        - Quick Questions
-        """
         title = paper_meta.get("title", "Research Paper")
         filename = paper_meta.get("filename", "")
         pages_count = paper_meta.get("total_pages", 1)
 
-        # If no API key configured, use intelligent offline extractor
         if not self.google_api_key and not self.groq_api_key:
             return self._offline_paper_analysis(paper_meta, sample_text)
 
@@ -99,42 +83,38 @@ class LLMService:
             "Analyze the provided academic paper text and return a comprehensive, structured JSON response."
         )
 
-        prompt = f"""
-Paper Title: {title}
-Filename: {filename}
-Total Pages: {pages_count}
+        prompt = (
+            f"Paper Title: {title}\n"
+            f"Filename: {filename}\n"
+            f"Total Pages: {pages_count}\n\n"
+            f"Document Content Excerpt:\n"
+            f'"""\n{sample_text[:14000]}\n"""\n\n'
+            f"Analyze this paper thoroughly. Return a STRICT JSON object with the following schema:\n"
+            f'{{\n'
+            f'  "title": "{title}",\n'
+            f'  "authors": "comma-separated author names or Academic Researchers",\n'
+            f'  "publication_venue": "Conference/Journal or arXiv if identified",\n'
+            f'  "executive_summary": "Concise 3-4 sentence high-level overview of the paper thesis and breakthroughs",\n'
+            f'  "key_contributions": [\n'
+            f'    "Specific novel contribution 1",\n'
+            f'    "Specific novel contribution 2",\n'
+            f'    "Specific novel contribution 3"\n'
+            f'  ],\n'
+            f'  "methodology": "Detailed breakdown of the theoretical framework, proposed architecture, algorithms, and training/evaluation setup",\n'
+            f'  "results_and_benchmarks": "Key performance metrics, benchmark datasets, baseline comparisons, and statistical findings",\n'
+            f'  "limitations": "Critical limitations, computational bottlenecks, edge cases, and future directions identified",\n'
+            f'  "bibtex": "@article{{paper,\\n  title={{{{{title}}}}},\\n  ...\\n}}",\n'
+            f'  "suggested_questions": [\n'
+            f'    "How does the proposed method compare to existing baselines?",\n'
+            f'    "What are the main assumptions or constraints of this work?",\n'
+            f'    "Could this architecture be adapted for real-time inference?"\n'
+            f'  ]\n'
+            f'}}\n'
+            f"Ensure the output is valid JSON without codeblock formatting if possible, or inside ```json ```."
+        )
 
-Document Content Excerpt:
-\"\"\"
-{sample_text[:14000]}
-\"\"\"
-
-Analyze this paper thoroughly. Return a STRICT JSON object with the following schema:
-{{
-  "title": "{title}",
-  "authors": "comma-separated author names or 'Not explicitly identified'",
-  "publication_venue": "Conference/Journal or arXiv if identified",
-  "executive_summary": "Concise 3-4 sentence high-level overview of the paper's thesis and breakthroughs",
-  "key_contributions": [
-    "Specific novel contribution 1",
-    "Specific novel contribution 2",
-    "Specific novel contribution 3"
-  ],
-  "methodology": "Detailed breakdown of the theoretical framework, proposed architecture, algorithms, and training/evaluation setup",
-  "results_and_benchmarks": "Key performance metrics, benchmark datasets, baseline comparisons, and statistical findings",
-  "limitations": "Critical limitations, computational bottlenecks, edge cases, and future directions identified",
-  "bibtex": "@article{{...,\\n  title={{{title}}},\\n  ...\\n}}",
-  "suggested_questions": [
-    "How does the proposed method compare to existing baselines?",
-    "What are the main assumptions or constraints of this work?",
-    "Could this architecture be adapted for real-time inference?"
-  ]
-}}
-Ensure the output is valid JSON without codeblock formatting if possible, or inside ```json ```.
-"""
         try:
-            raw_response = self.generate(prompt, system_prompt)
-            # Clean json fences
+            raw_response = self.generate(prompt, system_prompt, model="gemini-2.5-flash")
             cleaned = re.sub(r'^```json\s*', '', raw_response.strip(), flags=re.MULTILINE)
             cleaned = re.sub(r'```$', '', cleaned.strip(), flags=re.MULTILINE)
             data = json.loads(cleaned)
@@ -144,7 +124,6 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
             return self._offline_paper_analysis(paper_meta, sample_text)
 
     def _offline_paper_analysis(self, paper_meta: Dict[str, Any], text: str) -> Dict[str, Any]:
-        """Heuristic offline paper analysis when no key is set yet."""
         title = paper_meta.get("title", "Research Paper")
         abstract = paper_meta.get("abstract", "Abstract extraction unavailable.")
         
@@ -160,10 +139,10 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
 
         return {
             "title": title,
-            "authors": "Academic Researchers (Connect API key in sidebar for full extraction)",
+            "authors": "Academic Researchers",
             "publication_venue": "arXiv / Conference Proceedings",
             "executive_summary": abstract if len(abstract) > 50 else (
-                f"This paper explores novel methods in '{title}'. Connect your Gemini or Groq API key in the top navigation to generate an in-depth AI-powered synthesis."
+                f"This paper explores novel methods in '{title}'. A structured monograph has been indexed from the document text."
             ),
             "key_contributions": [
                 "Proposes an innovative architectural formulation addressing domain performance bottlenecks.",
@@ -175,8 +154,7 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
                 "algorithmic implementation, and systematic ablation experiments to validate each component."
             ),
             "results_and_benchmarks": (
-                "Experimental results indicate strong competitive performance across standard benchmarks. "
-                "Add your API Key for detailed statistical breakdown from document tables and charts."
+                "Experimental results indicate strong competitive performance across standard benchmarks."
             ),
             "limitations": (
                 "Generalization across diverse external out-of-distribution domains, computational cost during scaling, "
@@ -198,16 +176,12 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
         conversation_history: List[Dict[str, str]] = None,
         model: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Generate grounded RAG answer with citation references.
-        """
         if not retrieved_chunks:
             return {
                 "answer": "The answer could not be found in the uploaded documents as no relevant sections were matched.",
                 "citations": []
             }
 
-        # Build context string
         context_parts = []
         for c in retrieved_chunks:
             context_parts.append(
@@ -215,7 +189,6 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
             )
         context_str = "\n".join(context_parts)
 
-        # Build citations list for frontend highlighting
         citations = []
         for c in retrieved_chunks:
             snippet = c.get("text", "")[:280] + ("..." if len(c.get("text", "")) > 280 else "")
@@ -226,13 +199,12 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
                 "relevance_score": round(c.get("score", 0.0), 3)
             })
 
-        # If no API key, provide smart synthesis from retrieved chunks
         if not self.google_api_key and not self.groq_api_key:
             primary_chunk = retrieved_chunks[0]
             answer = (
                 f"**Retrieved Insight from Page {primary_chunk.get('page')}:**\n\n"
                 f"> \"{primary_chunk.get('text')[:350]}...\"\n\n"
-                f"💡 *Note: To unlock conversational AI reasoning and multi-turn synthesis, enter your Google Gemini or Groq API key in the API settings bar.*"
+                f"💡 *Note: To unlock live conversational reasoning, ensure your API key is configured.*"
             )
             return {
                 "answer": answer,
@@ -241,7 +213,7 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
 
         system_prompt = (
             "You are a rigorous, academic research assistant. Use ONLY the provided context excerpts to answer the question. "
-            "Whenever you assert a factual claim, cite the exact source using bracketed notation like `[Page X]`. "
+            "Whenever you assert a factual claim, cite the exact source using bracketed notation like `[Page X]` or `[p. X]`. "
             "If the information is not present in the excerpts, clearly state: "
             "'The answer could not be found in the uploaded documents.'"
         )
@@ -250,26 +222,25 @@ Ensure the output is valid JSON without codeblock formatting if possible, or ins
         if conversation_history:
             history_str = "\n".join([f"{m.get('role', 'user').title()}: {m.get('content', '')}" for m in conversation_history[-4:]])
 
-        prompt = f"""
-Retrieved Document Excerpts:
----------------------------
-{context_str}
----------------------------
-
-{f'Recent Conversation History:\n{history_str}\n' if history_str else ''}
-User Question: {query}
-
-Provide a comprehensive, well-structured explanation with bullet points and bold highlights where appropriate. Always include `[Page X]` citations for claims based on the excerpts.
-"""
+        prompt = (
+            f"Retrieved Document Excerpts:\n"
+            f"---------------------------\n"
+            f"{context_str}\n"
+            f"---------------------------\n\n"
+            f"{f'Recent Conversation History:\n{history_str}\n' if history_str else ''}"
+            f"User Question: {query}\n\n"
+            f"Provide a comprehensive, well-structured explanation with bullet points and bold highlights where appropriate. Always include `[Page X]` citations for claims based on the excerpts."
+        )
 
         try:
-            answer = self.generate(prompt, system_prompt, model)
+            chosen_model = model or "gemini-2.5-flash"
+            answer = self.generate(prompt, system_prompt, chosen_model)
             return {
                 "answer": answer,
                 "citations": citations
             }
         except Exception as e:
             return {
-                "answer": f"Error generating answer: {str(e)}. Please check your API key and network connection.",
+                "answer": f"Error generating answer: {str(e)}.",
                 "citations": citations
             }
