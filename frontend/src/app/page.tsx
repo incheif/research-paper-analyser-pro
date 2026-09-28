@@ -73,29 +73,45 @@ export default function Home() {
   const [inputMessage, setInputMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'methodology' | 'results' | 'bibtex'>('overview');
   const [showApiModal, setShowApiModal] = useState(false);
   const [geminiKey, setGeminiKey] = useState('');
   const [groqKey, setGroqKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
   const [copiedBibtex, setCopiedBibtex] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [fontSizeOffset, setFontSizeOffset] = useState<number>(0);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load API keys from localStorage
   useEffect(() => {
     const savedGemini = localStorage.getItem('paperscope_gemini_key') || '';
     const savedGroq = localStorage.getItem('paperscope_groq_key') || '';
-    const savedModel = localStorage.getItem('paperscope_model') || 'gemini-1.5-flash';
+    const savedModel = localStorage.getItem('paperscope_model') || 'gemini-2.5-flash';
+    const savedTheme = (localStorage.getItem('paperscope_theme') as 'light' | 'dark') || 'light';
     setGeminiKey(savedGemini);
     setGroqKey(savedGroq);
     setSelectedModel(savedModel);
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
-  // Auto scroll chat
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('paperscope_theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  const changeFontSize = (delta: number) => {
+    const newOffset = Math.max(-2, Math.min(4, fontSizeOffset + delta));
+    setFontSizeOffset(newOffset);
+    const baseSize = 18 + newOffset;
+    document.documentElement.style.setProperty('--reading-font-size', `${baseSize}px`);
+  };
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isGenerating]);
@@ -138,11 +154,11 @@ export default function Home() {
 
       const data: PaperData = await res.json();
       setPaper(data);
-      // Initialize chat with welcome message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setMessages([
         {
           role: 'assistant',
-          content: `Hello! I have analyzed **${data.breakdown.title || data.filename}** (${data.total_pages} pages). You can ask me any specific question about the theoretical foundation, experimental results, formulas, or methodology, and I'll cite the exact pages.`,
+          content: `Manuscript dossier indexed for "${data.breakdown.title || data.filename}" (${data.total_pages} pages). You may present inquiries regarding theory, methodology, formulas, or empirical findings with verifiable page citations.`,
         }
       ]);
     } catch (err: unknown) {
@@ -155,10 +171,11 @@ export default function Home() {
 
   const loadDemoPaper = () => {
     setPaper(SAMPLE_DEMO_PAPER);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setMessages([
       {
         role: 'assistant',
-        content: `Loaded sample research paper: **${SAMPLE_DEMO_PAPER.breakdown.title}**. Try asking one of the recommended research questions below!`,
+        content: `Loaded specimen monograph: "${SAMPLE_DEMO_PAPER.breakdown.title}". Inquire about the findings, comparative benchmarks, or chunking architecture below.`,
         citations: [
           { page: 1, snippet: "Retrieval-Augmented Generation for AI Reasoning: Architectures, Benchmarks, and Future Directions. JAIR 2024.", relevance_score: 0.98 }
         ]
@@ -175,7 +192,6 @@ export default function Home() {
     setMessages(newMessages);
     setIsGenerating(true);
 
-    // If it's the demo paper and no backend is connected, provide immediate demo RAG answer
     if (paper.paper_id === 'demo-rag-2024' && !geminiKey && !groqKey) {
       setTimeout(() => {
         let answer = "According to [Page 4], the paper evaluates hybrid vector-keyword retrieval against standard Dense Passage Retrieval. Table 2 on [Page 6] highlights that the hybrid approach delivers an 88.4% F1-score (+11.2% over baselines) while reducing hallucination rates to 3.8% on multi-hop benchmarks.";
@@ -197,7 +213,7 @@ export default function Home() {
           }
         ]);
         setIsGenerating(false);
-      }, 700);
+      }, 500);
       return;
     }
 
@@ -241,7 +257,7 @@ export default function Home() {
         ...newMessages,
         {
           role: 'assistant',
-          content: `⚠️ ${message}. If running locally, please ensure the FastAPI backend is running on port 8000.`,
+          content: `Notice: ${message}. If running locally, please ensure the FastAPI backend is running on port 8000.`,
         }
       ]);
     } finally {
@@ -277,30 +293,28 @@ export default function Home() {
         return;
       }
     } catch {
-      // Fallback client-side markdown export
+      // client fallback
     }
 
-    // Client-side export fallback
-    const report = `# Research Paper Analysis: ${paper.breakdown.title}\n\n` +
+    const report = `# Research Paper Monograph: ${paper.breakdown.title}\n\n` +
+      `**Publication/Venue:** ${paper.breakdown.publication_venue || 'N/A'}\n` +
       `**File:** ${paper.filename} | **Pages:** ${paper.total_pages}\n\n` +
       `## Executive Summary\n${paper.breakdown.executive_summary}\n\n` +
-      `## Key Contributions\n${paper.breakdown.key_contributions.map(c => `- ${c}`).join('\n')}\n\n` +
-      `## Methodology\n${paper.breakdown.methodology}\n\n` +
-      `## Benchmarks & Results\n${paper.breakdown.results_and_benchmarks}\n\n` +
+      `## Key Contributions\n${paper.breakdown.key_contributions.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n` +
+      `## Methodology & Technical Architecture\n${paper.breakdown.methodology}\n\n` +
+      `## Benchmarks & Empirical Findings\n${paper.breakdown.results_and_benchmarks}\n\n` +
       `## Limitations\n${paper.breakdown.limitations}\n\n` +
-      `## BibTeX\n\`\`\`bibtex\n${paper.breakdown.bibtex}\n\`\`\`\n`;
+      `## BibTeX Citation\n\`\`\`bibtex\n${paper.breakdown.bibtex}\n\`\`\`\n`;
 
     const blob = new Blob([report], { type: 'text/markdown' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${paper.filename.replace('.pdf', '')}_Analysis.md`;
+    a.download = `${paper.filename.replace('.pdf', '')}_Monograph.md`;
     a.click();
   };
 
-  // Helper to render text with clickable citation chips
   const renderMessageContent = (content: string, citations?: Citation[]) => {
-    // Regex for [Page X] or [p. X]
     const regex = /\[(?:Page|p\.)\s*(\d+)\]/gi;
     const parts = [];
     let lastIndex = 0;
@@ -324,7 +338,7 @@ export default function Home() {
           onClick={() => setSelectedCitation(matchedCitation)}
           title={`View verified excerpt from Page ${pageNum}`}
         >
-          📄 Page {pageNum}
+          [p. {pageNum}]
         </button>
       );
       lastIndex = regex.lastIndex;
@@ -342,68 +356,118 @@ export default function Home() {
   };
 
   return (
-    <div className={styles.container}>
-      {/* Navigation Header */}
-      <header className={styles.header}>
-        <div className={styles.brand}>
-          <div className={styles.logoIcon}>🔬</div>
-          <div>
-            <h1 className={styles.brandTitle}>PaperScope AI</h1>
-            <p className={styles.brandSubtitle}>RAG v2.0 • Academic Research Co-Pilot</p>
+    <div className={styles.wrapper}>
+      {/* Authentic Monochromatic Newspaper Masthead */}
+      <header className={styles.masthead}>
+        <div className={styles.topEarBar}>
+          <div className={styles.earLeft}>
+            <span>THE SCHOLARLY DISPATCH</span>
+            <span>•</span>
+            <span>EST. 2026</span>
+            <span>•</span>
+            <span className="badge badge-heavy">
+              {selectedModel.includes('llama') ? 'GROQ LLAMA 3.3' : 'GEMINI 2.5 FLASH'}
+            </span>
+          </div>
+
+          <div className={styles.earRight}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => changeFontSize(-1)}
+              title="Decrease reading font size"
+            >
+              A-
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => changeFontSize(1)}
+              title="Increase reading font size"
+            >
+              A+
+            </button>
+            <span>•</span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={toggleTheme}
+              title="Toggle Day/Night mode"
+            >
+              {theme === 'light' ? 'NIGHT' : 'DAY'}
+            </button>
+            <span>•</span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowApiModal(true)}
+              id="btn-api-settings"
+            >
+              API CONFIG {geminiKey || groqKey ? '[OK]' : ''}
+            </button>
           </div>
         </div>
 
-        <div className={styles.headerActions}>
-          <div className="badge badge-indigo">
-            <span className="pulse-dot online"></span>
-            {selectedModel.includes('llama') ? 'Groq Llama 3.3' : 'Gemini 1.5 Flash'}
+        <div className={styles.mainMasthead}>
+          <div
+            className={styles.mastheadLogoGroup}
+            onClick={() => {
+              if (paper) {
+                setPaper(null);
+                setMessages([]);
+              }
+            }}
+          >
+            <h1 className={styles.newspaperLogo}>The Scholarly Gazette</h1>
+            <p className={styles.newspaperTagline}>
+              A Monochromatic Digest & Retrieval-Augmented Academic Monograph System
+            </p>
           </div>
 
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowApiModal(true)}
-            id="btn-api-settings"
-          >
-            ⚙️ API Settings {geminiKey || groqKey ? '✓' : ''}
-          </button>
-
-          {!paper && (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={loadDemoPaper}
-              id="btn-demo-paper"
-            >
-              ⚡ Try Sample Paper
-            </button>
-          )}
-
-          {paper && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleExportMarkdown}
-              id="btn-export-markdown"
-            >
-              📥 Export Report
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {!paper ? (
+              <button
+                className="btn btn-secondary"
+                onClick={loadDemoPaper}
+                id="btn-demo-paper"
+              >
+                Sample Monograph
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setPaper(null);
+                    setMessages([]);
+                  }}
+                >
+                  Upload Another
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleExportMarkdown}
+                  id="btn-export-markdown"
+                >
+                  Export Report
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Main Workspace */}
-      <main className={styles.main}>
-        {/* Upload Zone (shown when no paper is loaded) */}
+      {/* Main Container */}
+      <main className={styles.mainContainer}>
+        {/* Upload State */}
         {!paper && (
-          <section className={`${styles.uploadHero} animate-fade-in`}>
-            <div className="badge badge-cyan">Intelligent Academic Document Intelligence</div>
-            <h2 className={styles.heroTitle}>
-              Transform Complex Research Papers into <span className={styles.heroTitleHighlight}>Instant Clarity & Insights</span>
+          <section className={styles.uploadHero}>
+            <span className="badge">Front Page Monograph</span>
+            <h2 className={styles.heroHeadline}>
+              Academic Intelligence & Document Analysis
             </h2>
-            <p className={styles.heroSubtitle}>
-              Upload any PDF paper to automatically extract executive summaries, key contributions, mathematical methodology, and chat with page-accurate citations.
+            <p className={styles.heroDek}>
+              Upload any scientific PDF to read an executive synthesis, track verified contributions, examine methodology, and query specific pages with grounded footnote attributions.
             </p>
 
             <div
-              className={`${styles.dropzone} ${isUploading ? styles.dropzoneActive : ''}`}
+              className={styles.dropzone}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
@@ -421,237 +485,180 @@ export default function Home() {
                   if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
                 }}
               />
-              <div className={styles.dropIcon}>📄</div>
+              <div style={{ fontSize: '2rem' }}>📄</div>
               {isUploading ? (
                 <>
-                  <div className={styles.dropText}>Analyzing PDF Architecture & Vector Embeddings...</div>
-                  <div className={`${styles.dropHint} shimmer`} style={{ width: '240px', height: '10px', borderRadius: '4px' }}></div>
+                  <div className={styles.dropzoneTitle}>Indexing Document & Building Vector Embeddings...</div>
+                  <div className={styles.dropzoneHint}>Please wait while the manuscript is parsed.</div>
                 </>
               ) : (
                 <>
-                  <div className={styles.dropText}>Click or Drag & Drop your Research Paper PDF here</div>
-                  <div className={styles.dropHint}>Supports single and multi-page papers • Max 50MB</div>
+                  <div className={styles.dropzoneTitle}>Drop your PDF paper here or click to browse</div>
+                  <div className={styles.dropzoneHint}>Supports single or multi-page academic publications</div>
                 </>
               )}
             </div>
 
             {uploadError && (
-              <div style={{ color: 'var(--accent-rose)', fontSize: '0.9rem', marginTop: '10px' }}>
-                ⚠️ {uploadError}
+              <div style={{ color: 'var(--ink-heavy)', fontSize: '0.88rem', marginTop: '10px', fontWeight: 600 }}>
+                Notice: {uploadError}
               </div>
             )}
           </section>
         )}
 
-        {/* Loaded Paper Workspace */}
+        {/* Paper Loaded State */}
         {paper && (
-          <>
-            {/* Active Paper Bar */}
-            <div className={`${styles.activePaperBar} animate-fade-in`}>
-              <div className={styles.paperDetails}>
-                <div className={styles.paperIcon}>📑</div>
-                <div>
-                  <h3 className={styles.paperName}>{paper.breakdown.title || paper.filename}</h3>
-                  <div className={styles.paperMetaChips}>
-                    <span className="badge badge-cyan">{paper.total_pages} Pages</span>
-                    {paper.total_chunks && <span className="badge badge-indigo">{paper.total_chunks} Vector Chunks</span>}
-                    {paper.breakdown.publication_venue && (
-                      <span className="badge badge-emerald">{paper.breakdown.publication_venue}</span>
-                    )}
-                  </div>
-                </div>
+          <div>
+            {/* Article Headline & Byline */}
+            <div className={styles.articleHeader}>
+              <div className={styles.articleCategory}>
+                {paper.breakdown.publication_venue || 'Scholarly Publication'}
               </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    setPaper(null);
-                    setMessages([]);
-                  }}
-                  id="btn-upload-new"
-                >
-                  🔄 Analyze Another Paper
-                </button>
+              <h2 className={styles.articleHeadline}>
+                {paper.breakdown.title || paper.filename}
+              </h2>
+              <div className={styles.bylineStrip}>
+                <div className={styles.authorAffiliation}>
+                  By {paper.breakdown.authors || 'Academic Researchers'}
+                </div>
+                <div className={styles.articleBadges}>
+                  <span className="badge">{paper.total_pages} Pages</span>
+                  {paper.total_chunks && (
+                    <span className="badge">{paper.total_chunks} Chunks</span>
+                  )}
+                  <span className="badge badge-heavy">Footnote Grounded</span>
+                </div>
               </div>
             </div>
 
-            {/* Split Grid */}
-            <div className={styles.workspaceGrid}>
-              {/* Left Column: Paper Breakdown Tabs & Cards */}
-              <div className={styles.analysisColumn}>
-                {/* Tab Navigation */}
-                <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
-                  <button
-                    className={`btn btn-sm ${activeTab === 'overview' ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setActiveTab('overview')}
-                  >
-                    📌 Executive Overview
-                  </button>
-                  <button
-                    className={`btn btn-sm ${activeTab === 'methodology' ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setActiveTab('methodology')}
-                  >
-                    ⚙️ Methodology & Architecture
-                  </button>
-                  <button
-                    className={`btn btn-sm ${activeTab === 'results' ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setActiveTab('results')}
-                  >
-                    📊 Benchmarks & Limitations
-                  </button>
-                  <button
-                    className={`btn btn-sm ${activeTab === 'bibtex' ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setActiveTab('bibtex')}
-                  >
-                    📚 BibTeX Citation
-                  </button>
-                </div>
+            {/* 2-Column Editorial Grid */}
+            <div className={styles.editorialGrid}>
+              {/* Left Column: Continuous Reading Flow */}
+              <div className={styles.storyColumn}>
+                {/* Minimalist Jump Navigation */}
+                <nav className={styles.jumpNav}>
+                  <span style={{ color: 'var(--ink-muted)' }}>Index:</span>
+                  <a href="#section-lead" className={styles.jumpLink}>Executive Lead</a>
+                  <span>•</span>
+                  <a href="#section-contributions" className={styles.jumpLink}>Contributions</a>
+                  <span>•</span>
+                  <a href="#section-methodology" className={styles.jumpLink}>Methodology</a>
+                  <span>•</span>
+                  <a href="#section-benchmarks" className={styles.jumpLink}>Benchmarks</a>
+                  <span>•</span>
+                  <a href="#section-limitations" className={styles.jumpLink}>Limitations</a>
+                  <span>•</span>
+                  <a href="#section-bibtex" className={styles.jumpLink}>BibTeX</a>
+                </nav>
 
-                {/* Tab 1: Executive Overview */}
-                {activeTab === 'overview' && (
-                  <>
-                    <div className="glass-card" style={{ padding: '24px' }}>
-                      <div className={styles.cardHeader}>
-                        <div className={styles.cardTitle}>
-                          <span>💡</span> Executive Summary & Core Thesis
-                        </div>
-                      </div>
-                      <div className={styles.cardBody}>
-                        <p>{paper.breakdown.executive_summary}</p>
-                      </div>
-                    </div>
-
-                    <div className="glass-card" style={{ padding: '24px' }}>
-                      <div className={styles.cardHeader}>
-                        <div className={styles.cardTitle}>
-                          <span>✨</span> Key Contributions & Breakthroughs
-                        </div>
-                        <span className="badge badge-cyan">{paper.breakdown.key_contributions?.length || 0} Identified</span>
-                      </div>
-                      <ul className={styles.bulletList}>
-                        {paper.breakdown.key_contributions?.map((contrib, idx) => (
-                          <li key={idx} className={styles.bulletItem}>
-                            <span className={styles.bulletIcon}>✓</span>
-                            <span>{contrib}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </>
-                )}
-
-                {/* Tab 2: Methodology */}
-                {activeTab === 'methodology' && (
-                  <div className="glass-card" style={{ padding: '24px' }}>
-                    <div className={styles.cardHeader}>
-                      <div className={styles.cardTitle}>
-                        <span>⚙️</span> Proposed Technical Architecture & Methods
-                      </div>
-                    </div>
-                    <div className={styles.cardBody}>
-                      <p>{paper.breakdown.methodology}</p>
-                    </div>
+                {/* Section 1: Lead Executive Summary */}
+                <article id="section-lead" className={styles.storySection}>
+                  <h3 className={styles.sectionHeading}>
+                    <span>The Executive Lead</span>
+                    <span className="badge">Primary Thesis</span>
+                  </h3>
+                  <div className={styles.leadParagraph}>
+                    {paper.breakdown.executive_summary}
                   </div>
-                )}
+                </article>
 
-                {/* Tab 3: Benchmarks & Limitations */}
-                {activeTab === 'results' && (
-                  <>
-                    <div className="glass-card" style={{ padding: '24px' }}>
-                      <div className={styles.cardHeader}>
-                        <div className={styles.cardTitle}>
-                          <span>📊</span> Empirical Benchmarks & Performance
-                        </div>
-                      </div>
-                      <div className={styles.cardBody}>
-                        <p>{paper.breakdown.results_and_benchmarks}</p>
-                      </div>
-                    </div>
+                {/* Section 2: Key Contributions */}
+                <article id="section-contributions" className={styles.storySection}>
+                  <h3 className={styles.sectionHeading}>
+                    <span>Novel Claims & Contributions</span>
+                    <span className="badge">{paper.breakdown.key_contributions?.length || 0} Findings</span>
+                  </h3>
+                  <ul className={styles.contributionList}>
+                    {paper.breakdown.key_contributions?.map((item, idx) => (
+                      <li key={idx} className={styles.contributionItem}>
+                        <span className={styles.contributionIndex}>0{idx + 1}.</span>
+                        <div className={styles.contributionText}>{item}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
 
-                    <div className="glass-card" style={{ padding: '24px', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
-                      <div className={styles.cardHeader}>
-                        <div className={styles.cardTitle} style={{ color: 'var(--accent-amber)' }}>
-                          <span>⚠️</span> Limitations & Threats to Validity
-                        </div>
-                      </div>
-                      <div className={styles.cardBody}>
-                        <p>{paper.breakdown.limitations}</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Tab 4: BibTeX */}
-                {activeTab === 'bibtex' && (
-                  <div className="glass-card" style={{ padding: '24px' }}>
-                    <div className={styles.cardHeader}>
-                      <div className={styles.cardTitle}>
-                        <span>📚</span> BibTeX Academic Citation
-                      </div>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={copyBibtex}
-                        id="btn-copy-bibtex"
-                      >
-                        {copiedBibtex ? '✓ Copied!' : '📋 Copy BibTeX'}
-                      </button>
-                    </div>
-                    <pre className={styles.bibtexBox}>{paper.breakdown.bibtex}</pre>
+                {/* Section 3: Methodology */}
+                <article id="section-methodology" className={styles.storySection}>
+                  <h3 className={styles.sectionHeading}>
+                    <span>Technical Architecture & Formulation</span>
+                    <span className="badge">Methodology</span>
+                  </h3>
+                  <div className={styles.storyBody}>
+                    <p>{paper.breakdown.methodology}</p>
                   </div>
-                )}
+                </article>
+
+                {/* Section 4: Benchmarks */}
+                <article id="section-benchmarks" className={styles.storySection}>
+                  <h3 className={styles.sectionHeading}>
+                    <span>Empirical Benchmarks & Evidence</span>
+                    <span className="badge">Verification</span>
+                  </h3>
+                  <div className={styles.storyBody}>
+                    <p>{paper.breakdown.results_and_benchmarks}</p>
+                  </div>
+                </article>
+
+                {/* Section 5: Limitations */}
+                <article id="section-limitations" className={styles.storySection}>
+                  <h3 className={styles.sectionHeading}>
+                    <span>Critical Assessment & Limitations</span>
+                    <span className="badge">Evaluation</span>
+                  </h3>
+                  <div className={styles.calloutBox}>
+                    <p style={{ margin: 0 }}>{paper.breakdown.limitations}</p>
+                  </div>
+                </article>
+
+                {/* Section 6: BibTeX */}
+                <article id="section-bibtex" className={styles.storySection}>
+                  <div className={styles.sectionHeading}>
+                    <span>BibTeX Academic Citation</span>
+                    <button className="btn btn-secondary btn-sm" onClick={copyBibtex} id="btn-copy-bibtex">
+                      {copiedBibtex ? 'Copied' : 'Copy Citation'}
+                    </button>
+                  </div>
+                  <pre className={styles.bibtexBox}>{paper.breakdown.bibtex}</pre>
+                </article>
               </div>
 
-              {/* Right Column: Academic Conversational Co-Pilot (Chat) */}
-              <div className={styles.chatColumn}>
-                <div className={styles.chatHeader}>
-                  <div className={styles.chatTitleGroup}>
-                    <span>🤖</span>
-                    <div>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Paper Co-Pilot Chat</h4>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        Retrieval-Augmented with verified page citations
-                      </p>
-                    </div>
-                  </div>
+              {/* Right Column: Scholarly Co-Pilot Notes & Q&A */}
+              <aside className={styles.assistantColumn}>
+                <div className={styles.assistantHeader}>
+                  <span className={styles.assistantTitle}>Scholarly Co-Pilot</span>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setMessages([])}
-                    title="Clear Chat History"
+                    title="Clear discussion"
                   >
-                    🗑️ Clear
+                    Clear
                   </button>
                 </div>
 
-                {/* Messages Feed */}
-                <div className={styles.chatMessages}>
+                <div className={styles.chatFeed}>
                   {messages.map((m, idx) => (
                     <div
                       key={idx}
-                      className={`${styles.message} ${m.role === 'user' ? styles.userMessage : styles.aiMessage} animate-fade-in`}
+                      className={m.role === 'user' ? styles.msgUser : styles.msgAssistant}
                     >
-                      <div className={m.role === 'user' ? styles.userBubble : styles.aiBubble}>
-                        {m.role === 'assistant' ? renderMessageContent(m.content, m.citations) : m.content}
-                      </div>
-
-                      <div className={styles.messageMeta}>
-                        <span>{m.role === 'user' ? 'You' : 'PaperScope RAG'}</span>
+                      {m.role === 'assistant' ? renderMessageContent(m.content, m.citations) : m.content}
+                      <div className={styles.msgMeta}>
+                        <span>{m.role === 'user' ? 'Reader' : 'Gazette RAG'}</span>
                         {m.responseTime && <span>• {m.responseTime}s</span>}
                         {m.citations && m.citations.length > 0 && (
-                          <span>• {m.citations.length} sources cited</span>
+                          <span>• {m.citations.length} cited pages</span>
                         )}
                       </div>
                     </div>
                   ))}
 
                   {isGenerating && (
-                    <div className={`${styles.message} ${styles.aiMessage} animate-fade-in`}>
-                      <div className={styles.aiBubble} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="pulse-dot online"></span>
-                        <span style={{ color: 'var(--text-secondary)' }}>
-                          Retrieving relevant chunks & formulating cited explanation...
-                        </span>
-                      </div>
+                    <div className={styles.msgAssistant}>
+                      <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>
+                        Consulting manuscript pages and formulating cited response...
+                      </span>
                     </div>
                   )}
 
@@ -660,23 +667,26 @@ export default function Home() {
 
                 {/* Suggested Questions */}
                 {paper.breakdown.suggested_questions && paper.breakdown.suggested_questions.length > 0 && (
-                  <div className={styles.suggestedQuestions}>
+                  <div className={styles.quickQuestions}>
+                    <div style={{ fontFamily: 'var(--font-ui)', fontSize: '0.7rem', color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Suggested Inquiries:
+                    </div>
                     {paper.breakdown.suggested_questions.slice(0, 3).map((q, idx) => (
                       <button
                         key={idx}
-                        className={styles.suggestionChip}
+                        className={styles.quickQuestionChip}
                         onClick={() => handleSendMessage(q)}
                         disabled={isGenerating}
                       >
-                        💬 {q}
+                        {q}
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* Chat Input Bar */}
+                {/* Chat Form */}
                 <form
-                  className={styles.chatInputArea}
+                  className={styles.chatInputForm}
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleSendMessage();
@@ -684,8 +694,8 @@ export default function Home() {
                 >
                   <input
                     type="text"
-                    className={styles.chatInput}
-                    placeholder="Ask anything about this research paper (e.g. explain formula, benchmarks)..."
+                    className={styles.chatInputField}
+                    placeholder="Ask about this paper..."
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     disabled={isGenerating}
@@ -693,132 +703,124 @@ export default function Home() {
                   />
                   <button
                     type="submit"
-                    className="btn btn-primary"
+                    className="btn btn-primary btn-sm"
                     disabled={isGenerating || !inputMessage.trim()}
                     id="btn-send-chat"
                   >
                     Send
                   </button>
                 </form>
-              </div>
+              </aside>
             </div>
-          </>
+          </div>
         )}
       </main>
 
-      {/* Citation Detail Modal */}
+      {/* Citation Footnote Excerpt Modal */}
       {selectedCitation && (
         <div className={styles.modalBackdrop} onClick={() => setSelectedCitation(null)}>
-          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="badge badge-cyan">Verified Source Citation</span>
-                <h3 style={{ fontSize: '1.1rem' }}>Document Page {selectedCitation.page}</h3>
+              <div>
+                <span className="badge badge-heavy">Page {selectedCitation.page}</span>
+                <h3 className={styles.modalTitle} style={{ marginTop: '4px' }}>Archival Excerpt</h3>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelectedCitation(null)}>✕</button>
             </div>
 
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                EXACT DOCUMENT EXCERPT:
-              </div>
-              <blockquote style={{ fontSize: '0.92rem', color: '#f1f5f9', fontStyle: 'italic', lineHeight: 1.6 }}>
-                &ldquo;{selectedCitation.snippet}&rdquo;
-              </blockquote>
+            <div className={styles.excerptContent}>
+              &ldquo;{selectedCitation.snippet}&rdquo;
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               {selectedCitation.relevance_score && (
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                  Confidence / Relevance: <strong>{(selectedCitation.relevance_score * 100).toFixed(0)}%</strong>
+                <div style={{ fontFamily: 'var(--font-ui)', fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
+                  Relevance: <strong>{(selectedCitation.relevance_score * 100).toFixed(0)}%</strong>
                 </div>
               )}
               <button className="btn btn-secondary btn-sm" onClick={() => setSelectedCitation(null)}>
-                Close Excerpt
+                Dismiss
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* API Key Settings Modal */}
+      {/* API Key Configuration Modal */}
       {showApiModal && (
         <div className={styles.modalBackdrop} onClick={() => setShowApiModal(false)}>
-          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.2rem' }}>⚙️</span>
-                <h3>AI Provider & Model Settings</h3>
-              </div>
+              <h3 className={styles.modalTitle}>API Key Configuration</h3>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowApiModal(false)}>✕</button>
             </div>
 
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Configure your API keys to enable live inference. Keys are stored locally in your browser.
+            <p style={{ fontFamily: 'var(--font-reading)', fontSize: '0.88rem', color: 'var(--ink-secondary)' }}>
+              Configure your model provider and credentials. API keys are cached locally in your browser session.
             </p>
 
-            <div className={styles.inputGroup}>
-              <label className={styles.inputLabel}>Select Default Model</label>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Selected LLM Engine</label>
               <select
-                className={styles.textInput}
+                className={styles.formSelect}
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
               >
-                <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Ultra Fast & Free Tier)</option>
-                <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep Mathematical Reasoning)</option>
-                <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (Next-Gen)</option>
+                <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Recommended & Fastest)</option>
+                <option value="gemini-2.5-pro">Google Gemini 2.5 Pro (Deep Mathematical Reasoning)</option>
+                <option value="gemini-flash-latest">Google Gemini Flash Latest</option>
                 <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B (High-Speed Inference)</option>
-                <option value="llama3-8b-8192">Groq Llama 3 8B (Instant)</option>
+                <option value="llama3-8b-8192">Groq Llama 3 8B</option>
               </select>
             </div>
 
-            <div className={styles.inputGroup}>
-              <label className={styles.inputLabel}>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>
                 Google Gemini API Key
                 <a
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: 'var(--accent-cyan)', marginLeft: '8px', fontSize: '0.78rem' }}
+                  style={{ color: 'var(--ink-heavy)', marginLeft: '8px', fontSize: '0.74rem', textDecoration: 'underline' }}
                 >
                   Get free key ↗
                 </a>
               </label>
               <input
                 type="password"
-                className={styles.textInput}
-                placeholder="AIzaSy..."
+                className={styles.formInput}
+                placeholder="AIzaSy... or AQ...."
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
               />
             </div>
 
-            <div className={styles.inputGroup}>
-              <label className={styles.inputLabel}>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>
                 Groq API Key (Optional)
                 <a
                   href="https://console.groq.com/keys"
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: 'var(--accent-cyan)', marginLeft: '8px', fontSize: '0.78rem' }}
+                  style={{ color: 'var(--ink-heavy)', marginLeft: '8px', fontSize: '0.74rem', textDecoration: 'underline' }}
                 >
                   Get free key ↗
                 </a>
               </label>
               <input
                 type="password"
-                className={styles.textInput}
+                className={styles.formInput}
                 placeholder="gsk_..."
                 value={groqKey}
                 onChange={(e) => setGroqKey(e.target.value)}
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-              <button className="btn btn-secondary" onClick={() => setShowApiModal(false)}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowApiModal(false)}>
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={saveApiSettings}>
+              <button className="btn btn-primary btn-sm" onClick={saveApiSettings}>
                 Save Settings
               </button>
             </div>
