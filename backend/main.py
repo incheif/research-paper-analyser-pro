@@ -4,7 +4,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -34,6 +34,8 @@ PAPERS_STORE: Dict[str, Dict[str, Any]] = {}
 class ChatRequest(BaseModel):
     paper_id: Optional[str] = "all"
     message: str
+    highlighted_text: Optional[str] = None
+    highlight_page: Optional[int] = None
     history: Optional[List[Dict[str, str]]] = []
     provider: Optional[str] = "gemini"
     model: Optional[str] = "gemini-2.5-flash"
@@ -129,6 +131,8 @@ async def upload_papers(
             "metadata": meta,
             "breakdown": breakdown,
             "chunks": chunks,
+            "pages_data": pages_data,
+            "pdf_bytes": file_bytes,
             "vector_index": vector_index,
             "uploaded_at": time.time()
         }
@@ -198,7 +202,9 @@ async def upload_papers(
                 "filename": p["filename"],
                 "total_pages": p["total_pages"],
                 "total_chunks": p["total_chunks"],
-                "breakdown": p["breakdown"]
+                "breakdown": p["breakdown"],
+                "pages_data": p.get("pages_data", []),
+                "has_pdf": "pdf_bytes" in p
             }
             for p in processed_papers
         ],
@@ -229,8 +235,20 @@ async def get_paper(paper_id: str):
         "filename": p["filename"],
         "total_pages": p["total_pages"],
         "total_chunks": p["total_chunks"],
-        "breakdown": p["breakdown"]
+        "breakdown": p["breakdown"],
+        "pages_data": p.get("pages_data", []),
+        "has_pdf": "pdf_bytes" in p
     }
+
+@app.get("/api/paper/{paper_id}/pdf")
+async def get_paper_pdf(paper_id: str):
+    if paper_id not in PAPERS_STORE or "pdf_bytes" not in PAPERS_STORE[paper_id]:
+        raise HTTPException(status_code=404, detail="PDF binary not available for this session.")
+    return Response(
+        content=PAPERS_STORE[paper_id]["pdf_bytes"],
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{PAPERS_STORE[paper_id]["filename"]}"'}
+    )
 
 @app.post("/api/chat")
 async def chat_with_paper(
@@ -252,6 +270,16 @@ async def chat_with_paper(
     start_time = time.time()
 
     top_chunks = vector_index.query(req.message, top_k=5)
+    if req.highlighted_text:
+        hl_chunk = {
+            "chunk_id": 9999,
+            "page": req.highlight_page or 1,
+            "filename": paper.get("filename", ""),
+            "text": f"USER HIGHLIGHTED PASSAGE FOR INQUIRY:\n\"{req.highlighted_text}\"",
+            "is_reference": False,
+            "score": 1.0
+        }
+        top_chunks = [hl_chunk] + [c for c in top_chunks if c.get("text") != req.highlighted_text][:4]
     gemini_key, groq_key = resolve_credentials(x_gemini_key, x_groq_key, req.api_key)
 
     llm = LLMService(

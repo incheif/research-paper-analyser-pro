@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './page.module.css';
 
 interface Citation {
@@ -16,13 +16,13 @@ interface Message {
   content: string;
   citations?: Citation[];
   cross_questions?: string[];
-  responseTime?: number;
+  response_time?: number;
 }
 
 interface PaperBreakdown {
   title: string;
-  authors?: string;
-  publication_venue?: string;
+  authors: string;
+  publication_venue: string;
   executive_summary: string;
   key_contributions: string[];
   methodology: string;
@@ -32,185 +32,282 @@ interface PaperBreakdown {
   suggested_questions: string[];
 }
 
-interface PaperData {
+interface PageData {
+  page: number;
+  text: string;
+  char_count?: number;
+}
+
+interface Paper {
   paper_id: string;
   filename: string;
   total_pages: number;
-  total_chunks?: number;
+  total_chunks: number;
   breakdown: PaperBreakdown;
+  pages_data?: PageData[];
+  pdfUrl?: string;
+  has_pdf?: boolean;
 }
 
-const SAMPLE_DEMO_PAPERS: PaperData[] = [
+interface HighlightSelection {
+  text: string;
+  top: number;
+  left: number;
+  page?: number;
+}
+
+const SAMPLE_DEMO_PAPERS: Paper[] = [
   {
-    paper_id: "demo-rag-2024",
-    filename: "Retrieval_Augmented_Generation_Survey.pdf",
+    paper_id: 'demo-rag-survey-2024',
+    filename: 'Retrieval_Augmented_Generation_Survey.pdf',
     total_pages: 14,
-    total_chunks: 48,
+    total_chunks: 38,
     breakdown: {
-      title: "Retrieval-Augmented Generation for AI Reasoning: Architectures, Benchmarks, and Future Directions",
-      authors: "Dr. Elena Vance, Marcus Thorne, Chen Wei (Stanford & MIT AI Lab)",
-      publication_venue: "Journal of Artificial Intelligence Research (JAIR) & arXiv:2403.11892",
-      executive_summary: "This work synthesizes current paradigms in Retrieval-Augmented Generation (RAG), presenting a formal taxonomy of Dense Retrieval, Multi-Query Expansion, and Re-ranking pipelines. The authors demonstrate that hybrid vector-keyword retrieval reduces hallucinations by 42% on domain-specific benchmarks while cutting generation latency via context pruning.",
+      title: 'Retrieval-Augmented Generation for AI Reasoning: Architectures, Benchmarks, and Future Directions',
+      authors: 'Alexander H. Wright, Elena Rostova, Marcus Vance, et al.',
+      publication_venue: 'Journal of Artificial Intelligence Research (JAIR), 2024',
+      executive_summary: 'This monograph provides a rigorous comparative synthesis of Retrieval-Augmented Generation (RAG) paradigms. It demonstrates that dense vector retrieval paired with cross-encoder re-ranking reduces factual hallucination rates by 42% on multi-hop reasoning tasks while keeping token consumption bounded within acceptable latency bounds.',
       key_contributions: [
-        "Formal mathematical taxonomy comparing Dense Passage Retrieval (DPR), Graph-RAG, and ColBERT late-interaction models.",
-        "Novel Context-Aware Adaptive Chunking (CAAC) algorithm preserving cross-paragraph semantic coherence.",
-        "Empirical benchmark evaluating 12 LLMs across multi-hop biomedical and legal document reasoning tasks.",
-        "Framework for self-correcting iterative query refinement with verifiable attribution citations."
+        'Formal taxonomy distinguishing Naive, Advanced, and Modular RAG architectures.',
+        'Context-Aware Adaptive Chunking algorithm minimizing semantic boundary fragmentation.',
+        'Extensive benchmark on 12 domain-specific question-answering evaluation datasets.',
+        'Theoretical latency-accuracy Pareto frontier for re-ranking models in real-time inference.'
       ],
-      methodology: "The evaluation pipeline comprises a two-stage retrieval mechanism: initial candidate generation via high-dimensional dense embeddings (1536-dim) followed by cross-encoder re-ranking. Chunk boundaries are dynamically adjusted based on semantic cosine divergence rather than static token counters.",
-      results_and_benchmarks: "Across HotpotQA and BioASQ datasets, the hybrid approach achieved 88.4% F1-score (outperforming pure vector search by +11.2%). Factuality hallucination rates dropped from 18.4% to 3.8% when verified citation grounding was enforced.",
-      limitations: "Increased latency overhead during cross-encoder re-ranking (approx. 140ms per query), sensitivity to multi-lingual tokenization discrepancies, and potential degradation when documents contain contradictory tabular data.",
-      bibtex: `@article{vance2024rag,\n  title={Retrieval-Augmented Generation for AI Reasoning: Architectures, Benchmarks, and Future Directions},\n  author={Vance, Elena and Thorne, Marcus and Wei, Chen},\n  journal={Journal of Artificial Intelligence Research},\n  volume={79},\n  pages={112--148},\n  year={2024},\n  publisher={JAIR}\n}`,
+      methodology: 'The evaluation establishes an open benchmark testing 4 retriever families (BM25, Dense Passage Retrieval, ColBERT, and Multi-vector Embeddings) across 15,000 queries. Retrieval chunks are scored on context relevance, grounded answer fidelity, and factual consistency using standardized rubric evaluations.',
+      results_and_benchmarks: 'Modular RAG achieved 84.6% accuracy on the HalluEval corpus, outperforming zero-shot foundation models (52.1%) and standard vector RAG (71.3%). Latency overhead was limited to 110ms with ColBERT pruning.',
+      limitations: 'Susceptibility to document retrieval poisoning attacks; quadratic compute costs during multi-hop iterative re-querying across corpus sizes exceeding 10M tokens.',
+      bibtex: `@article{wright2024rag,\n  title={Retrieval-Augmented Generation for AI Reasoning: Architectures, Benchmarks, and Future Directions},\n  author={Wright, Alexander H. and Rostova, Elena and Vance, Marcus},\n  journal={Journal of Artificial Intelligence Research},\n  volume={79},\n  pages={101--148},\n  year={2024}\n}`,
       suggested_questions: [
-        "What is the main finding regarding hybrid retrieval vs pure vector search?",
-        "How does the Context-Aware Adaptive Chunking algorithm work?",
-        "What are the computational bottlenecks during cross-encoder re-ranking?",
-        "Can this framework be applied to multi-lingual legal documents?"
+        'How does Context-Aware Adaptive Chunking mitigate semantic loss?',
+        'What were the empirical results of Modular RAG on HalluEval?',
+        'What are the primary computational bottlenecks identified during multi-hop retrieval?'
       ]
-    }
+    },
+    pages_data: [
+      {
+        page: 1,
+        text: 'Retrieval-Augmented Generation for AI Reasoning: Architectures, Benchmarks, and Future Directions\n\nAlexander H. Wright, Elena Rostova, Marcus Vance\n\nAbstract: Large Language Models (LLMs) continue to demonstrate remarkable generative prowess, yet persistent vulnerabilities to hallucinations and knowledge obsolescence impede high-stakes deployment. This paper synthesizes the state-of-the-art in Retrieval-Augmented Generation (RAG).'
+      },
+      {
+        page: 2,
+        text: '1. Introduction and Architectural Taxonomy\n\nModern knowledge-grounded systems are categorized into Naive, Advanced, and Modular RAG architectures. In Naive RAG, fixed-size token chunking often fractures logical coherence. In Advanced RAG, pre-retrieval query expansion and post-retrieval re-ranking mitigate retrieval noise.'
+      },
+      {
+        page: 3,
+        text: '2. Context-Aware Adaptive Chunking\n\nWe formulate an adaptive boundary algorithm that monitors semantic cosine similarity between adjacent paragraph embeddings. Chunks are dynamically split when similarity dips below a dynamic threshold theta, reducing semantic fragmentation by 34%.'
+      },
+      {
+        page: 4,
+        text: '3. Experimental Results & Benchmarks\n\nAcross 15,000 multi-hop questions, Modular RAG achieved 84.6% accuracy on HalluEval, outperforming baseline DPR (71.3%) and BM25 (61.2%). Cross-encoder re-ranking adds 110ms latency but improves precision by 28%.'
+      }
+    ]
   },
   {
-    paper_id: "demo-transformer-2023",
-    filename: "Attention_Mechanisms_Comparative_Study.pdf",
-    total_pages: 12,
-    total_chunks: 40,
+    paper_id: 'demo-attention-scale-2024',
+    filename: 'Attention_Mechanisms_Comparative_Study.pdf',
+    total_pages: 18,
+    total_chunks: 52,
     breakdown: {
-      title: "Scalable Attention Architectures: Linear, Flash, and Sparse Self-Attention in Practice",
-      authors: "K. R. Vaswani, Sarah Lin, David H. Miller (Deep Learning Review)",
-      publication_venue: "IEEE Transactions on Neural Networks",
-      executive_summary: "A rigorous mathematical evaluation of O(N^2) quadratic self-attention bottlenecks and modern approximations. Demonstrates that hardware-aware memory hierarchy optimizations (FlashAttention) outperform algorithmic approximations in exact perplexity preservation while yielding 3.5x training speedups.",
+      title: 'Scalable Attention Architectures: Linear, Flash, and Sparse Attention in Long-Context LLMs',
+      authors: 'Devon Zhao, Sofia K. Lindqvist, Tariq Al-Mansoor',
+      publication_venue: 'Conference on Neural Information Processing Systems (NeurIPS), 2024',
+      executive_summary: 'A comprehensive study evaluating memory-bandwidth trade-offs across attention variants up to 128k token contexts. The authors demonstrate that IO-aware tiling in FlashAttention-3 yields up to 3.5x wall-clock speedups over standard multi-head attention without quality degradation.',
       key_contributions: [
-        "Systematic memory-access latency profile comparing standard softmax attention against IO-aware tiling.",
-        "Ablation analysis on long-context sequence modeling (up to 64k tokens) without positional extrapolation degradation.",
-        "Comparative benchmark of sparse vs low-rank attention approximations across language and vision tasks."
+        'GPU memory hierarchy profiling of quadratic vs. sub-quadratic attention kernels.',
+        'Empirical verification of FlashAttention-3 throughput on Hopper FP8 Tensor Cores.',
+        'Quantified perplexity drift across sliding-window and dilated sparse attention masks.'
       ],
-      methodology: "Re-engineered forward and backward attention kernel passes executed entirely within GPU SRAM to minimize High-Bandwidth Memory (HBM) IO roundtrips.",
-      results_and_benchmarks: "FlashAttention achieved 3.2x to 4.1x wall-clock speedup across 8x H100 clusters with zero degradation in BLEU or perplexity metrics.",
-      limitations: "Requires specialized CUDA kernel implementations, hardware-specific SRAM cache sizing, and introduces complex numerical precision considerations under FP8.",
-      bibtex: `@article{vaswani2023attention,\n  title={Scalable Attention Architectures: Linear, Flash, and Sparse Self-Attention in Practice},\n  author={Vaswani, K. R. and Lin, Sarah and Miller, David H.},\n  journal={IEEE Transactions on Neural Networks},\n  year={2023}\n}`,
+      methodology: 'Benchmarking on 8x NVIDIA H100 clusters evaluating sequence lengths from 2k to 128k tokens across diverse matrix operations and multi-GPU tensor-parallel configurations.',
+      results_and_benchmarks: 'FlashAttention-3 sustained 640 TFLOPs/s in FP16 and over 1.1 PFLOPs/s in FP8, reducing context ingestion overhead by 68% relative to FlashAttention-2.',
+      limitations: 'Hardware dependence requiring modern tensor core architecture; numerical instability in FP8 low-precision under extreme outlier activations.',
+      bibtex: `@inproceedings{zhao2024scalable,\n  title={Scalable Attention Architectures: Linear, Flash, and Sparse Attention in Long-Context LLMs},\n  author={Zhao, Devon and Lindqvist, Sofia K. and Al-Mansoor, Tariq},\n  booktitle={NeurIPS},\n  year={2024}\n}`,
       suggested_questions: [
-        "How does FlashAttention avoid high-bandwidth memory IO bottlenecks?",
-        "What are the numerical trade-offs when operating under FP8 precision?",
-        "How do the training speedups compare across sequence lengths?"
+        'How does FlashAttention-3 achieve 3.5x wall-clock speedup?',
+        'What are the memory bottlenecks in sequences above 64k tokens?',
+        'How does numerical instability manifest in FP8 attention?'
       ]
-    }
+    },
+    pages_data: [
+      {
+        page: 1,
+        text: 'Scalable Attention Architectures: Linear, Flash, and Sparse Attention in Long-Context LLMs\n\nDevon Zhao, Sofia K. Lindqvist, Tariq Al-Mansoor\n\nAbstract: Processing extensive context windows in transformer models remains fundamentally constrained by memory bandwidth. This work systematically examines hardware-aware attention mechanisms.'
+      },
+      {
+        page: 2,
+        text: '1. Hardware Memory Hierarchy Bottlenecks\n\nStandard softmax attention computes an N x N matrix that exceeds on-chip SRAM capacity, triggering repeated High-Bandwidth Memory (HBM) IO roundtrips. FlashAttention mitigates this through block-tiling and online softmax rescaling.'
+      },
+      {
+        page: 3,
+        text: '2. FP8 Tensor Core Execution\n\nBy mapping attention blocks directly to Hopper FP8 Tensor Cores, FlashAttention-3 achieves over 1.1 PFLOPs/s while maintaining sub-0.05 perplexity drift compared to FP16 baselines.'
+      }
+    ]
   }
 ];
 
 export default function Home() {
-  const [papers, setPapers] = useState<PaperData[]>([]);
+  const [papers, setPapers] = useState<Paper[]>([]);
   const [activePaperId, setActivePaperId] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'split' | 'chatgpt' | 'article'>('split');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // View Layout Modes
+  const [viewMode, setViewMode] = useState<'split' | 'chatgpt' | 'article'>('split');
+  // Reader Sub-Modes: Editorial Digest, Original PDF Viewer, Page-by-Page Manuscript
+  const [readerMode, setReaderMode] = useState<'digest' | 'pdf' | 'manuscript'>('digest');
+
+  // Text Highlighting & Quoting
+  const [highlightSelection, setHighlightSelection] = useState<HighlightSelection | null>(null);
+  const [activeQuote, setActiveQuote] = useState<string | null>(null);
+
+  // Settings & Modals
   const [showApiModal, setShowApiModal] = useState(false);
   const [geminiKey, setGeminiKey] = useState('');
   const [groqKey, setGroqKey] = useState('');
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [isNightMode, setIsNightMode] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
-  const [copiedBibtex, setCopiedBibtex] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [fontSizeOffset, setFontSizeOffset] = useState<number>(0);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Load API keys from localStorage
   useEffect(() => {
-    const savedGemini = localStorage.getItem('paperscope_gemini_key') || '';
-    const savedGroq = localStorage.getItem('paperscope_groq_key') || '';
-    const savedModel = localStorage.getItem('paperscope_model') || 'gemini-2.5-flash';
-    const savedTheme = (localStorage.getItem('paperscope_theme') as 'light' | 'dark') || 'light';
-    setGeminiKey(savedGemini);
-    setGroqKey(savedGroq);
-    setSelectedModel(savedModel);
-    setTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    const savedGemini = localStorage.getItem('gemini_api_key') || '';
+    const savedGroq = localStorage.getItem('groq_api_key') || '';
+    const savedModel = localStorage.getItem('selected_model') || 'gemini-2.5-flash';
+    const savedNight = localStorage.getItem('newspaper_night_mode') === 'true';
+
+    if (savedGemini) setGeminiKey(savedGemini);
+    if (savedGroq) setGroqKey(savedGroq);
+    if (savedModel) setSelectedModel(savedModel);
+    if (savedNight) {
+      setIsNightMode(true);
+      document.body.classList.add('night-mode');
+    }
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('paperscope_theme', newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
-  };
-
-  const changeFontSize = (delta: number) => {
-    const newOffset = Math.max(-2, Math.min(4, fontSizeOffset + delta));
-    setFontSizeOffset(newOffset);
-    const baseSize = 18 + newOffset;
-    document.documentElement.style.setProperty('--reading-font-size', `${baseSize}px`);
-  };
-
+  // Text selection listener for highlighting sections
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isGenerating]);
+    const handleMouseUp = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+
+      const text = sel.toString().trim();
+      if (text.length > 8 && text.length < 1500) {
+        try {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          setHighlightSelection({
+            text,
+            top: Math.max(12, rect.top + window.scrollY - 46),
+            left: Math.max(12, rect.left + window.scrollX + (rect.width / 2) - 130)
+          });
+        } catch {
+          // ignore selection errors
+        }
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      // If clicking outside the floating pill, clear it
+      const target = e.target as HTMLElement;
+      if (!target.closest('#floating-highlight-pill')) {
+        setHighlightSelection(null);
+      }
+    };
+
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, []);
+
+  const toggleNightMode = () => {
+    const next = !isNightMode;
+    setIsNightMode(next);
+    localStorage.setItem('newspaper_night_mode', String(next));
+    if (next) {
+      document.body.classList.add('night-mode');
+    } else {
+      document.body.classList.remove('night-mode');
+    }
+  };
 
   const saveApiSettings = () => {
-    localStorage.setItem('paperscope_gemini_key', geminiKey);
-    localStorage.setItem('paperscope_groq_key', groqKey);
-    localStorage.setItem('paperscope_model', selectedModel);
+    localStorage.setItem('gemini_api_key', geminiKey.trim());
+    localStorage.setItem('groq_api_key', groqKey.trim());
+    localStorage.setItem('selected_model', selectedModel);
     setShowApiModal(false);
   };
 
-  const handleFileUpload = async (fileList: FileList | File[]) => {
-    const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-    if (files.length === 0) {
-      setUploadError('Please select one or more valid PDF documents.');
-      return;
-    }
+  const handleFileUpload = async (fileList: FileList) => {
+    if (!fileList || fileList.length === 0) return;
 
-    setUploadError(null);
     setIsUploading(true);
+    setUploadError(null);
 
     const formData = new FormData();
-    files.forEach(f => {
-      formData.append('files', f);
-    });
-    if (geminiKey) formData.append('client_api_key', geminiKey);
+    const localPdfMap: Record<string, string> = {};
+
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList[i];
+      if (f.name.toLowerCase().endsWith('.pdf')) {
+        formData.append('files', f);
+        try {
+          localPdfMap[f.name] = URL.createObjectURL(f);
+        } catch {
+          // ignore blob creation error
+        }
+      }
+    }
 
     try {
       const headers: Record<string, string> = {};
-      if (geminiKey) headers['x-gemini-key'] = geminiKey;
-      if (groqKey) headers['x-groq-key'] = groqKey;
+      if (geminiKey.trim()) headers['x-gemini-key'] = geminiKey.trim();
+      if (groqKey.trim()) headers['x-groq-key'] = groqKey.trim();
 
       const res = await fetch('http://localhost:8000/api/upload', {
         method: 'POST',
         headers,
-        body: formData,
+        body: formData
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-        throw new Error(err.detail || 'Failed to analyze PDF files');
+        const err = await res.json();
+        throw new Error(err.detail || 'Upload failed.');
       }
 
       const data = await res.json();
-      const newPapers: PaperData[] = data.papers || [];
-      setPapers(newPapers);
-      const defaultActiveId = data.active_paper_id || (newPapers.length > 0 ? newPapers[0].paper_id : 'all');
-      setActivePaperId(defaultActiveId);
+      const updatedPapers: Paper[] = data.papers.map((p: any) => ({
+        ...p,
+        pdfUrl: localPdfMap[p.filename] || `http://localhost:8000/api/paper/${p.paper_id}/pdf`
+      }));
 
-      const welcomeMsg = newPapers.length > 1
-        ? `Indexed ${newPapers.length} academic manuscripts (${newPapers.reduce((sum, p) => sum + p.total_pages, 0)} total pages). You can interrogate individual papers or query across the entire collection for comparative analysis.`
-        : `Manuscript dossier indexed for "${newPapers[0]?.breakdown?.title || newPapers[0]?.filename}" (${newPapers[0]?.total_pages} pages). You may present queries regarding theory, methodology, formulas, or empirical findings with page citations.`;
+      setPapers(updatedPapers);
+      setActivePaperId(data.active_paper_id || updatedPapers[0]?.paper_id || 'all');
 
       setMessages([
         {
           role: 'assistant',
-          content: welcomeMsg,
+          content: data.has_multiple
+            ? `Indexed ${updatedPapers.length} research manuscripts. You can inspect individual papers or query the unified multi-document corpus. Click "Original PDF" to view the visual layout or highlight any passage to interrogate it.`
+            : `Indexed "${updatedPapers[0]?.filename}" (${updatedPapers[0]?.total_pages} pages). High-speed vector index is active. Click "Original PDF" to view the manuscript or highlight any section to ask questions.`,
           cross_questions: [
-            "What are the central contributions across these manuscripts?",
-            "How do the experimental results compare to established baselines?",
-            "What are the acknowledged limitations and bottlenecks?"
+            'What is the primary architectural innovation introduced?',
+            'How do the benchmark results compare to established baselines?',
+            'What critical limitations are documented in the paper?'
           ]
         }
       ]);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Upload failed. Check if backend is running on port 8000.';
-      setUploadError(message);
+    } catch (err: any) {
+      console.warn('Upload failed, falling back to local simulation:', err);
+      setUploadError(err.message || 'Failed to connect to backend engine.');
     } finally {
       setIsUploading(false);
     }
@@ -235,51 +332,55 @@ export default function Home() {
     ]);
   };
 
-  const handleSendMessage = async (customText?: string) => {
+  const handleSendMessage = async (customText?: string, highlightData?: { text: string; page?: number }) => {
     const textToSend = (customText || inputMessage).trim();
     if (!textToSend || papers.length === 0 || isGenerating) return;
 
+    const quotingText = highlightData?.text || activeQuote;
     setInputMessage('');
-    const newMessages: Message[] = [...messages, { role: 'user', content: textToSend }];
+    setActiveQuote(null);
+
+    const displayMsg = quotingText
+      ? `[Quoting Section]: "${quotingText.slice(0, 160)}${quotingText.length > 160 ? '...' : ''}"\n\n${textToSend}`
+      : textToSend;
+
+    const newMessages: Message[] = [...messages, { role: 'user', content: displayMsg }];
     setMessages(newMessages);
     setIsGenerating(true);
 
-    // If using demo papers without server API key, provide smart offline simulated RAG response
     const isDemo = papers.some(p => p.paper_id.startsWith('demo-'));
     if (isDemo && !geminiKey && !groqKey) {
       setTimeout(() => {
-        let answer = "According to [Retrieval_Augmented_Generation_Survey.pdf, Page 4], hybrid vector-keyword retrieval reduces hallucinations by 42% on multi-hop benchmarks. Concurrently, [Attention_Mechanisms_Comparative_Study.pdf, Page 6] highlights that FlashAttention yields a 3.5x speedup by computing softmax tiling entirely in on-chip SRAM.";
-        if (textToSend.toLowerCase().includes('compare') || textToSend.toLowerCase().includes('bottleneck')) {
-          answer = "When comparing both paradigms:\n\n1. **RAG Bottleneck**: As shown on [Retrieval_Augmented_Generation_Survey.pdf, Page 11], cross-encoder re-ranking introduces approximately 140ms latency overhead per query.\n2. **Attention Bottleneck**: [Attention_Mechanisms_Comparative_Study.pdf, Page 3] notes that standard multi-head attention is bound by GPU High-Bandwidth Memory (HBM) read/write throughput rather than FLOPs capacity.";
+        let answer = "According to [Retrieval_Augmented_Generation_Survey, Page 4], hybrid vector-keyword retrieval reduces hallucinations by 42% on multi-hop benchmarks. Concurrently, [Attention_Mechanisms_Comparative_Study, Page 6] highlights that FlashAttention yields a 3.5x speedup by computing softmax tiling entirely in on-chip SRAM.";
+        if (quotingText) {
+          answer = `**Analysis of Highlighted Excerpt:**\n\n> "${quotingText}"\n\nThis section articulates a core methodological transition. By grounding attention matrix computations in high-bandwidth SRAM tiling, the architecture removes memory IO roundtrips, ensuring linear scalability without empirical perplexity loss.`;
         }
         setMessages([
           ...newMessages,
           {
             role: 'assistant',
             content: answer,
-            responseTime: 0.45,
             citations: [
-              { page: 4, filename: "Retrieval_Augmented_Generation_Survey.pdf", snippet: "Hybrid vector-keyword indexing combines inverted lexical indices with 1536-dimensional dense embeddings.", relevance_score: 0.94 },
-              { page: 6, filename: "Attention_Mechanisms_Comparative_Study.pdf", snippet: "FlashAttention utilizes tiled matrix operations in SRAM to bypass memory latency.", relevance_score: 0.92 }
+              { page: 2, filename: "Retrieval_Augmented_Generation_Survey", snippet: "Cross-encoder re-ranking introduces approximately 110ms latency overhead but improves top-3 precision by 28% on HalluEval.", relevance_score: 0.96 }
             ],
             cross_questions: [
-              "Could FlashAttention be used inside the RAG retrieval cross-encoder?",
-              "What are the numerical precision trade-offs under FP8 vs BF16?",
-              "How do the benchmark datasets differ between the two evaluations?"
+              "What architectural trade-offs exist between ColBERT and Dense Passage Retrieval?",
+              "How does memory bandwidth bottleneck standard multi-head attention?",
+              "Can FlashAttention-3 be applied to sparse attention patterns?"
             ]
           }
         ]);
         setIsGenerating(false);
-      }, 500);
+      }, 700);
       return;
     }
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (geminiKey) headers['x-gemini-key'] = geminiKey;
-      if (groqKey) headers['x-groq-key'] = groqKey;
+      if (geminiKey.trim()) headers['x-gemini-key'] = geminiKey.trim();
+      if (groqKey.trim()) headers['x-groq-key'] = groqKey.trim();
 
-      const provider = selectedModel.includes('llama') ? 'groq' : 'gemini';
+      const currentPaper = papers.find(p => p.paper_id === activePaperId) || papers[0];
 
       const res = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
@@ -287,15 +388,18 @@ export default function Home() {
         body: JSON.stringify({
           paper_id: activePaperId,
           message: textToSend,
-          history: newMessages.slice(-6).map(m => ({ role: m.role, content: m.content })),
-          provider,
+          highlighted_text: quotingText || undefined,
+          highlight_page: highlightData?.page || undefined,
+          provider: selectedModel.includes('llama') ? 'groq' : 'gemini',
           model: selectedModel,
-          api_key: provider === 'groq' ? groqKey : geminiKey
+          api_key: geminiKey || groqKey,
+          history: messages.slice(-4).map(m => ({ role: m.role, content: m.content }))
         })
       });
 
       if (!res.ok) {
-        throw new Error('Failed to generate response from paper.');
+        const err = await res.json();
+        throw new Error(err.detail || 'Chat inference failed.');
       }
 
       const data = await res.json();
@@ -304,22 +408,21 @@ export default function Home() {
         {
           role: 'assistant',
           content: data.answer,
-          citations: data.citations,
-          cross_questions: data.cross_questions,
-          responseTime: data.response_time
+          citations: data.citations || [],
+          cross_questions: data.cross_questions || [],
+          response_time: data.response_time
         }
       ]);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error generating response.';
+    } catch (err: any) {
       setMessages([
         ...newMessages,
         {
           role: 'assistant',
-          content: `Notice: ${message}. If running locally, please ensure the FastAPI backend is running on port 8000.`,
+          content: `Inference Notice: ${err.message || 'Failed to generate response.'}. Verify your Gemini API key in the top bar configuration.`,
           cross_questions: [
-            "Verify backend server connection",
-            "Try asking about a specific section",
-            "Check API credentials configuration"
+            "Check Gemini API key validity in Settings.",
+            "Retry with Gemini 2.5 Flash.",
+            "Inspect backend server logs on port 8000."
           ]
         }
       ]);
@@ -328,18 +431,25 @@ export default function Home() {
     }
   };
 
-  // Resolve current active paper object for article view
-  const currentPaper = papers.find(p => p.paper_id === activePaperId) || (papers.length > 0 ? papers[0] : null);
+  // Actions for text highlighting
+  const handleAskAboutHighlight = () => {
+    if (!highlightSelection) return;
+    setActiveQuote(highlightSelection.text);
+    setInputMessage(`Analyze this excerpt: "${highlightSelection.text.slice(0, 100)}..."`);
+    setHighlightSelection(null);
+    if (viewMode === 'article') setViewMode('split');
+    chatInputRef.current?.focus();
+  };
 
-  const copyBibtex = () => {
-    if (!currentPaper) return;
-    navigator.clipboard.writeText(currentPaper.breakdown.bibtex);
-    setCopiedBibtex(true);
-    setTimeout(() => setCopiedBibtex(false), 2000);
+  const handleExplainHighlight = () => {
+    if (!highlightSelection) return;
+    const textToExplain = highlightSelection.text;
+    setHighlightSelection(null);
+    if (viewMode === 'article') setViewMode('split');
+    handleSendMessage(`Explain the technical implications, methodology, and significance of this passage: "${textToExplain}"`, { text: textToExplain });
   };
 
   const handleExportMarkdown = async () => {
-    if (!currentPaper) return;
     try {
       const res = await fetch('http://localhost:8000/api/export', {
         method: 'POST',
@@ -349,175 +459,105 @@ export default function Home() {
           chat_history: messages.map(m => ({ role: m.role, content: m.content }))
         })
       });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Analysis_${activePaperId}.md`;
-        a.click();
-        return;
-      }
-    } catch {
-      // client fallback
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Analysis_${activePaperId}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      alert('Export failed. Check backend connection.');
     }
-
-    const report = `# Research Paper Monograph: ${currentPaper.breakdown.title}\n\n` +
-      `**Publication/Venue:** ${currentPaper.breakdown.publication_venue || 'N/A'}\n` +
-      `**Document:** ${currentPaper.filename} | **Pages:** ${currentPaper.total_pages}\n\n` +
-      `## Executive Summary\n${currentPaper.breakdown.executive_summary}\n\n` +
-      `## Key Contributions\n${currentPaper.breakdown.key_contributions.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n` +
-      `## Methodology & Technical Architecture\n${currentPaper.breakdown.methodology}\n\n` +
-      `## Benchmarks & Empirical Findings\n${currentPaper.breakdown.results_and_benchmarks}\n\n` +
-      `## Limitations\n${currentPaper.breakdown.limitations}\n\n` +
-      `## BibTeX Citation\n\`\`\`bibtex\n${currentPaper.breakdown.bibtex}\n\`\`\`\n`;
-
-    const blob = new Blob([report], { type: 'text/markdown' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${currentPaper.filename.replace('.pdf', '')}_Monograph.md`;
-    a.click();
   };
 
-  const renderMessageContent = (content: string, citations?: Citation[]) => {
-    const regex = /\[(?:(?:([\w\.\-]+),\s*)?(?:Page|p\.)\s*(\d+))\]/gi;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = regex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index));
-      }
-      const matchedFilename = match[1];
-      const pageNum = parseInt(match[2], 10);
-      const matchedCitation = citations?.find(c => c.page === pageNum && (!matchedFilename || c.filename?.includes(matchedFilename))) || {
-        page: pageNum,
-        filename: matchedFilename || "Document",
-        snippet: `Verified citation excerpt from Page ${pageNum}.`,
-        relevance_score: 0.95
-      };
-
-      const chipLabel = matchedFilename ? `[${matchedFilename.slice(0, 15)}..., p. ${pageNum}]` : `[p. ${pageNum}]`;
-
-      parts.push(
-        <button
-          key={match.index}
-          className="citation-chip"
-          onClick={() => setSelectedCitation(matchedCitation)}
-          title={`View verified excerpt from Page ${pageNum}`}
-        >
-          {chipLabel}
-        </button>
-      );
-      lastIndex = regex.lastIndex;
-    }
-
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
-    }
-
-    return (
-      <div style={{ whiteSpace: 'pre-wrap' }}>
-        {parts.map((p, idx) => (typeof p === 'string' ? <span key={idx}>{p}</span> : p))}
-      </div>
-    );
-  };
+  const currentPaper = papers.find(p => p.paper_id === activePaperId) || papers[0];
 
   return (
-    <div className={styles.wrapper}>
-      {/* Authentic Monochromatic Newspaper Masthead */}
-      <header className={styles.masthead}>
-        <div className={styles.topEarBar}>
-          <div className={styles.earLeft}>
-            <span>THE SCHOLARLY DISPATCH</span>
-            <span>•</span>
-            <span>EST. 2026</span>
-            <span>•</span>
-            <span className="badge badge-heavy">
-              {selectedModel.includes('llama') ? 'GROQ LLAMA 3.3' : 'GEMINI 2.5 FLASH'}
-            </span>
-          </div>
+    <div className={styles.newspaperShell}>
+      {/* Floating Section Highlight Popover */}
+      {highlightSelection && (
+        <div
+          id="floating-highlight-pill"
+          className={styles.floatingHighlightAction}
+          style={{ top: highlightSelection.top, left: highlightSelection.left }}
+        >
+          <button
+            className={styles.highlightBtn}
+            onClick={handleAskAboutHighlight}
+            title="Quote this highlighted text in chat"
+          >
+            💬 Ask About Selection
+          </button>
+          <button
+            className={styles.highlightBtnSecondary}
+            onClick={handleExplainHighlight}
+            title="Immediately explain this passage"
+          >
+            ⚡ Explain Passage
+          </button>
+          <button
+            className={styles.highlightBtnClose}
+            onClick={() => setHighlightSelection(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
-          <div className={styles.earRight}>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => changeFontSize(-1)}
-              title="Decrease reading font size"
-            >
-              A-
+      {/* Top Folio / Masthead Bar */}
+      <header className={styles.topFolio}>
+        <div className={styles.folioMeta}>
+          <div className={styles.folioLeft}>
+            <span>THE SCHOLARLY DISPATCH</span>
+            <span className={styles.folioDot}>•</span>
+            <span>EST. 2026</span>
+            <span className={styles.folioDot}>•</span>
+            <span className="badge badge-heavy">{selectedModel.toUpperCase()}</span>
+          </div>
+          <div className={styles.folioRight}>
+            <button className={styles.themeToggle} onClick={toggleNightMode}>
+              {isNightMode ? '☀ DAY MODE' : '☾ NIGHT'}
             </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => changeFontSize(1)}
-              title="Increase reading font size"
-            >
-              A+
-            </button>
-            <span>•</span>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={toggleTheme}
-              title="Toggle Day/Night mode"
-            >
-              {theme === 'light' ? 'NIGHT' : 'DAY'}
-            </button>
-            <span>•</span>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setShowApiModal(true)}
-              id="btn-api-settings"
-            >
-              API CONFIG {geminiKey || groqKey ? '[OK]' : ''}
+            <span className={styles.folioDot}>•</span>
+            <button className={styles.settingsLink} onClick={() => setShowApiModal(true)}>
+              API CONFIG
             </button>
           </div>
         </div>
 
-        <div className={styles.mainMasthead}>
-          <div
-            className={styles.mastheadLogoGroup}
-            onClick={() => {
-              if (papers.length > 0) {
-                setPapers([]);
-                setMessages([]);
-              }
-            }}
-          >
-            <h1 className={styles.newspaperLogo}>The Scholarly Gazette</h1>
-            <p className={styles.newspaperTagline}>
-              Monochromatic Literature Digest & Retrieval-Augmented Cross-Paper Research Platform
-            </p>
+        <div className={styles.masthead}>
+          <h1 className={styles.mastheadTitle}>THE SCHOLARLY GAZETTE</h1>
+          <p className={styles.mastheadSubtitle}>
+            Monochromatic Literature Digest & Retrieval-Augmented Cross-Paper Research Platform
+          </p>
+        </div>
+
+        {/* View Switcher Navigation */}
+        <div className={styles.navBar}>
+          <div className={styles.viewModeNav}>
+            <button
+              className={`${styles.viewModeBtn} ${viewMode === 'split' ? styles.viewModeActive : ''}`}
+              onClick={() => setViewMode('split')}
+            >
+              📰 Split View
+            </button>
+            <button
+              className={`${styles.viewModeBtn} ${viewMode === 'chatgpt' ? styles.viewModeActive : ''}`}
+              onClick={() => setViewMode('chatgpt')}
+            >
+              💬 ChatGPT Mode
+            </button>
+            <button
+              className={`${styles.viewModeBtn} ${viewMode === 'article' ? styles.viewModeActive : ''}`}
+              onClick={() => setViewMode('article')}
+            >
+              Article View
+            </button>
           </div>
 
-          <div className={styles.mastheadActions}>
-            {/* View Mode Switcher */}
-            {papers.length > 0 && (
-              <div className={styles.viewModeNav}>
-                <button
-                  className={`${styles.viewModeBtn} ${viewMode === 'split' ? styles.viewModeBtnActive : ''}`}
-                  onClick={() => setViewMode('split')}
-                  title="2-Column Side-by-Side Reading & Co-Pilot"
-                >
-                  📰 Split View
-                </button>
-                <button
-                  className={`${styles.viewModeBtn} ${viewMode === 'chatgpt' ? styles.viewModeBtnActive : ''}`}
-                  onClick={() => setViewMode('chatgpt')}
-                  title="Full ChatGPT Focus Mode with Cross-Questions"
-                >
-                  💬 ChatGPT Mode
-                </button>
-                <button
-                  className={`${styles.viewModeBtn} ${viewMode === 'article' ? styles.viewModeBtnActive : ''}`}
-                  onClick={() => setViewMode('article')}
-                  title="Full-Width Article Reader"
-                >
-                  📖 Article View
-                </button>
-              </div>
-            )}
-
+          <div style={{ display: 'flex', gap: '8px' }}>
             {papers.length === 0 ? (
               <button
                 className="btn btn-secondary btn-sm"
@@ -558,7 +598,7 @@ export default function Home() {
               Multi-Paper Research Analysis & Continuous Reading
             </h2>
             <p className={styles.heroDek}>
-              Upload single or multiple research papers simultaneously. Examine individual monographs or perform comparative cross-document interrogations with grounded citations and interactive follow-up cross-questions.
+              Upload single or multiple research papers simultaneously. Examine individual monographs or perform comparative cross-document interrogations with grounded citations, native PDF viewing, and section-level highlight inquiries.
             </p>
 
             <div
@@ -613,7 +653,7 @@ export default function Home() {
         {/* Papers Loaded State */}
         {papers.length > 0 && currentPaper && (
           <div>
-            {/* Multi-Paper Tab Bar */}
+            {/* Multi-Paper Tab Strip */}
             {papers.length > 1 && (
               <div className={styles.multiPaperStrip}>
                 <button
@@ -674,82 +714,76 @@ export default function Home() {
                     ))}
                   </div>
 
-                  <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--rule-border)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginBottom: '8px' }}>
+                      ACTIVE MODEL: <strong>{selectedModel}</strong>
+                    </div>
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      + Add Research Paper
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
+                      style={{ width: '100%' }}
                       onClick={() => setViewMode('split')}
                     >
-                      Return to Split View
+                      Switch to Split View
                     </button>
                   </div>
                 </aside>
 
-                {/* Center Spacious ChatGPT-Style Conversation Window */}
-                <div className={styles.chatgptContainer}>
-                  <div className={styles.assistantHeader}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span className={styles.assistantTitle}>Academic Co-Pilot</span>
-                      <span className="badge">
-                        Context: {activePaperId === 'all' ? `All ${papers.length} Manuscripts` : currentPaper.filename}
-                      </span>
+                {/* Main Conversational Workspace */}
+                <section className={styles.chatgptMain}>
+                  <div className={styles.chatHeaderBar}>
+                    <div className={styles.chatHeaderTitle}>
+                      Academic Co-Pilot: {activePaperId === 'all' ? 'Corpus Synthesis' : currentPaper.filename}
                     </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setMessages([])}
-                        title="Clear conversation"
-                      >
-                        Clear Chat
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setViewMode('split')}
-                        title="Switch back to split view"
-                      >
-                        📰 Split View
-                      </button>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)' }}>
+                      Highlight any text in reader view to ask targeted questions
                     </div>
                   </div>
 
-                  {/* Message Stream */}
-                  <div className={styles.chatFeed}>
+                  <div className={styles.chatMessagesArea}>
                     {messages.map((m, idx) => (
                       <div
                         key={idx}
-                        className={m.role === 'user' ? styles.msgUser : styles.msgAssistant}
+                        className={`${styles.chatMessage} ${m.role === 'user' ? styles.chatMessageUser : styles.chatMessageAssistant}`}
                       >
-                        {m.role === 'assistant' ? renderMessageContent(m.content, m.citations) : m.content}
-
-                        <div className={styles.msgMeta}>
-                          <span>{m.role === 'user' ? 'Reader Inquiry' : 'Gazette AI Co-Pilot'}</span>
-                          {m.responseTime && <span>• {m.responseTime}s</span>}
-                          {m.citations && m.citations.length > 0 && (
-                            <span>• {m.citations.length} Footnotes Cited</span>
-                          )}
+                        <div className={styles.messageSender}>
+                          {m.role === 'user' ? 'RESEARCH INQUIRY' : 'SCHOLARLY CO-PILOT'}
+                        </div>
+                        <div className={styles.messageContent} style={{ whiteSpace: 'pre-wrap' }}>
+                          {m.content}
                         </div>
 
-                        {/* Interactive Follow-up Cross-Questions (ChatGPT Style) */}
-                        {m.role === 'assistant' && m.cross_questions && m.cross_questions.length > 0 && (
-                          <div className={styles.crossQuestionsBox}>
-                            <div className={styles.crossQuestionsLabel}>
-                              Suggested Cross-Examination (Click to Ask):
-                            </div>
-                            <div className={styles.crossQuestionsList}>
-                              {m.cross_questions.map((cq, cqIdx) => (
+                        {/* Citations */}
+                        {m.citations && m.citations.length > 0 && (
+                          <div className={styles.citationsBox}>
+                            <div className={styles.citationsTitle}>GROUNDED SOURCE CITATIONS:</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {m.citations.map((c, cIdx) => (
                                 <button
-                                  key={cqIdx}
-                                  className={styles.crossQuestionPill}
-                                  onClick={() => handleSendMessage(cq)}
-                                  disabled={isGenerating}
+                                  key={cIdx}
+                                  className={styles.citationBadge}
+                                  onClick={() => setSelectedCitation(c)}
+                                  title={c.snippet}
                                 >
-                                  <span>↳</span> {cq}
+                                  {c.filename ? `${c.filename.replace('.pdf', '')}, p.${c.page}` : `Page ${c.page}`}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Interactive Cross-Questions */}
+                        {m.cross_questions && m.cross_questions.length > 0 && (
+                          <div className={styles.crossQuestionsBox}>
+                            <div className={styles.crossQuestionsTitle}>PROBING CROSS-EXAMINATION QUESTIONS:</div>
+                            <div className={styles.crossQuestionList}>
+                              {m.cross_questions.map((q, qIdx) => (
+                                <button
+                                  key={qIdx}
+                                  className={styles.crossQuestionPill}
+                                  onClick={() => handleSendMessage(q)}
+                                  title="Inquire this cross-question"
+                                >
+                                  → {q}
                                 </button>
                               ))}
                             </div>
@@ -757,257 +791,305 @@ export default function Home() {
                         )}
                       </div>
                     ))}
-
-                    {isGenerating && (
-                      <div className={styles.msgAssistant}>
-                        <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>
-                          Retrieving context chunks across manuscripts and formulating cited synthesis...
-                        </span>
-                      </div>
-                    )}
-
-                    <div ref={chatEndRef} />
+                    <div ref={chatMessagesEndRef} />
                   </div>
 
-                  {/* Input Form at Bottom */}
-                  <form
-                    className={styles.chatInputForm}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }}
-                  >
-                    <input
-                      type="text"
-                      className={styles.chatInputField}
-                      placeholder={activePaperId === 'all' ? `Ask across all ${papers.length} papers (e.g. compare architectures)...` : `Ask anything about "${currentPaper.filename}"...`}
+                  {/* Active Quote banner */}
+                  {activeQuote && (
+                    <div className={styles.activeQuoteBox}>
+                      <span className={styles.activeQuoteSnippet}>
+                        <strong>Targeted Section:</strong> &ldquo;{activeQuote}&rdquo;
+                      </span>
+                      <button className={styles.activeQuoteDismiss} onClick={() => setActiveQuote(null)}>
+                        ✕ Clear
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Prompt Box */}
+                  <div className={styles.chatInputContainer}>
+                    <textarea
+                      ref={chatInputRef}
+                      className={styles.chatInput}
+                      placeholder={activeQuote ? `Inquire about highlighted passage...` : `Ask about methodology, theoretical baselines, or limitations...`}
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
-                      disabled={isGenerating}
-                      id="input-chat-query"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      rows={2}
                     />
                     <button
-                      type="submit"
                       className="btn btn-primary"
+                      onClick={() => handleSendMessage()}
                       disabled={isGenerating || !inputMessage.trim()}
-                      id="btn-send-chat"
                     >
-                      Inquire
+                      {isGenerating ? 'Analyzing...' : 'Inquire'}
                     </button>
-                  </form>
-                </div>
+                  </div>
+                </section>
               </div>
             )}
 
-            {/* VIEW MODE 2 & 3: SPLIT VIEW OR FULL ARTICLE VIEW */}
+            {/* VIEW MODE 2 & 3: SPLIT VIEW OR ARTICLE VIEW */}
             {viewMode !== 'chatgpt' && (
-              <div>
-                {/* Article Headline & Byline */}
-                <div className={styles.articleHeader}>
-                  <div className={styles.articleCategory}>
-                    {currentPaper.breakdown.publication_venue || 'Academic Publication'}
-                  </div>
-                  <h2 className={styles.articleHeadline}>
-                    {currentPaper.breakdown.title || currentPaper.filename}
-                  </h2>
-                  <div className={styles.bylineStrip}>
-                    <div className={styles.authorAffiliation}>
-                      By {currentPaper.breakdown.authors || 'Academic Researchers'}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <span className="badge">{currentPaper.total_pages} Pages</span>
-                      {currentPaper.total_chunks && (
-                        <span className="badge">{currentPaper.total_chunks} Chunks</span>
-                      )}
-                      <span className="badge badge-heavy">Footnote Grounded</span>
+              <div className={viewMode === 'split' ? styles.splitGrid : styles.articleLayout}>
+                {/* Left Column: Reader & Digest */}
+                <article className={styles.paperColumn}>
+                  {/* Headline & Metadata */}
+                  <div className={styles.paperMasthead}>
+                    <h2 className={styles.paperHeadline}>{currentPaper.breakdown.title}</h2>
+                    <div className={styles.bylineBlock}>
+                      <span className={styles.bylineAuthors}>INVESTIGATORS: {currentPaper.breakdown.authors}</span>
+                      <span className={styles.bylineVenue}>VENUE: {currentPaper.breakdown.publication_venue}</span>
                     </div>
                   </div>
-                </div>
 
-                <div className={viewMode === 'split' ? styles.editorialGrid : styles.storyColumn}>
-                  {/* Article Reading Flow */}
-                  <div className={styles.storyColumn}>
-                    <nav className={styles.jumpNav}>
-                      <span style={{ color: 'var(--ink-muted)' }}>Index:</span>
-                      <a href="#section-lead" className={styles.jumpLink}>Executive Lead</a>
-                      <span>•</span>
-                      <a href="#section-contributions" className={styles.jumpLink}>Contributions</a>
-                      <span>•</span>
-                      <a href="#section-methodology" className={styles.jumpLink}>Methodology</a>
-                      <span>•</span>
-                      <a href="#section-benchmarks" className={styles.jumpLink}>Benchmarks</a>
-                      <span>•</span>
-                      <a href="#section-limitations" className={styles.jumpLink}>Limitations</a>
-                      <span>•</span>
-                      <a href="#section-bibtex" className={styles.jumpLink}>BibTeX</a>
-                    </nav>
+                  {/* Reader Sub-Navigation Tabs */}
+                  <div className={styles.readerSubNav}>
+                    <div className={styles.readerTabGroup}>
+                      <button
+                        className={`${styles.readerTab} ${readerMode === 'digest' ? styles.readerTabActive : ''}`}
+                        onClick={() => setReaderMode('digest')}
+                      >
+                        📜 Editorial Digest
+                      </button>
+                      <button
+                        className={`${styles.readerTab} ${readerMode === 'pdf' ? styles.readerTabActive : ''}`}
+                        onClick={() => setReaderMode('pdf')}
+                      >
+                        📑 Original PDF
+                      </button>
+                      <button
+                        className={`${styles.readerTab} ${readerMode === 'manuscript' ? styles.readerTabActive : ''}`}
+                        onClick={() => setReaderMode('manuscript')}
+                      >
+                        📖 Manuscript Pages ({currentPaper.pages_data?.length || currentPaper.total_pages}p)
+                      </button>
+                    </div>
 
-                    <article id="section-lead" className={styles.storySection}>
-                      <h3 className={styles.sectionHeading}>
-                        <span>The Executive Lead</span>
-                        <span className="badge">Primary Thesis</span>
-                      </h3>
-                      <div className={styles.leadParagraph}>
-                        {currentPaper.breakdown.executive_summary}
-                      </div>
-                    </article>
-
-                    <article id="section-contributions" className={styles.storySection}>
-                      <h3 className={styles.sectionHeading}>
-                        <span>Novel Claims & Contributions</span>
-                        <span className="badge">{currentPaper.breakdown.key_contributions?.length || 0} Findings</span>
-                      </h3>
-                      <ul className={styles.contributionList}>
-                        {currentPaper.breakdown.key_contributions?.map((item, idx) => (
-                          <li key={idx} className={styles.contributionItem}>
-                            <span className={styles.contributionIndex}>0{idx + 1}.</span>
-                            <div className={styles.contributionText}>{item}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    </article>
-
-                    <article id="section-methodology" className={styles.storySection}>
-                      <h3 className={styles.sectionHeading}>
-                        <span>Technical Architecture & Formulation</span>
-                        <span className="badge">Methodology</span>
-                      </h3>
-                      <div className={styles.storyBody}>
-                        <p>{currentPaper.breakdown.methodology}</p>
-                      </div>
-                    </article>
-
-                    <article id="section-benchmarks" className={styles.storySection}>
-                      <h3 className={styles.sectionHeading}>
-                        <span>Empirical Benchmarks & Evidence</span>
-                        <span className="badge">Verification</span>
-                      </h3>
-                      <div className={styles.storyBody}>
-                        <p>{currentPaper.breakdown.results_and_benchmarks}</p>
-                      </div>
-                    </article>
-
-                    <article id="section-limitations" className={styles.storySection}>
-                      <h3 className={styles.sectionHeading}>
-                        <span>Critical Assessment & Limitations</span>
-                        <span className="badge">Evaluation</span>
-                      </h3>
-                      <div className={styles.calloutBox}>
-                        <p style={{ margin: 0 }}>{currentPaper.breakdown.limitations}</p>
-                      </div>
-                    </article>
-
-                    <article id="section-bibtex" className={styles.storySection}>
-                      <div className={styles.sectionHeading}>
-                        <span>BibTeX Academic Citation</span>
-                        <button className="btn btn-secondary btn-sm" onClick={copyBibtex} id="btn-copy-bibtex">
-                          {copiedBibtex ? 'Copied' : 'Copy Citation'}
-                        </button>
-                      </div>
-                      <pre className={styles.bibtexBox}>{currentPaper.breakdown.bibtex}</pre>
-                    </article>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
+                      Highlight text to ask Co-Pilot
+                    </div>
                   </div>
 
-                  {/* Co-Pilot Column (Shown in Split Mode) */}
-                  {viewMode === 'split' && (
-                    <aside className={styles.assistantColumn}>
-                      <div className={styles.assistantHeader}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className={styles.assistantTitle}>Scholarly Co-Pilot</span>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => setViewMode('chatgpt')}
-                            title="Expand to Full ChatGPT Focus Mode"
-                            style={{ padding: '2px 6px', fontSize: '0.72rem' }}
+                  {/* SUB-VIEW 1: ORIGINAL PDF EMBEDDED VIEWER */}
+                  {readerMode === 'pdf' && (
+                    <div>
+                      <div className={styles.pdfNotice}>
+                        <span>Viewing: <strong>{currentPaper.filename}</strong></span>
+                        {currentPaper.pdfUrl && (
+                          <a
+                            href={currentPaper.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: 'var(--ink-heavy)', textDecoration: 'underline' }}
                           >
-                            ⛶ Expand
-                          </button>
-                        </div>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => setMessages([])}
-                          title="Clear discussion"
-                        >
-                          Clear
-                        </button>
+                            Open in New Window ↗
+                          </a>
+                        )}
                       </div>
-
-                      <div className={styles.chatFeed}>
-                        {messages.map((m, idx) => (
-                          <div
-                            key={idx}
-                            className={m.role === 'user' ? styles.msgUser : styles.msgAssistant}
+                      <div className={styles.pdfViewerWrapper}>
+                        {currentPaper.pdfUrl ? (
+                          <object
+                            data={currentPaper.pdfUrl}
+                            type="application/pdf"
+                            className={styles.pdfIframe}
                           >
-                            {m.role === 'assistant' ? renderMessageContent(m.content, m.citations) : m.content}
-                            <div className={styles.msgMeta}>
-                              <span>{m.role === 'user' ? 'Reader' : 'Gazette AI'}</span>
-                              {m.responseTime && <span>• {m.responseTime}s</span>}
-                              {m.citations && m.citations.length > 0 && (
-                                <span>• {m.citations.length} cited pages</span>
-                              )}
-                            </div>
-
-                            {/* Cross-Questions */}
-                            {m.role === 'assistant' && m.cross_questions && m.cross_questions.length > 0 && (
-                              <div className={styles.crossQuestionsBox}>
-                                <div className={styles.crossQuestionsLabel}>Follow-up Inquiries:</div>
-                                <div className={styles.crossQuestionsList}>
-                                  {m.cross_questions.map((cq, cqIdx) => (
-                                    <button
-                                      key={cqIdx}
-                                      className={styles.crossQuestionPill}
-                                      onClick={() => handleSendMessage(cq)}
-                                      disabled={isGenerating}
-                                    >
-                                      <span>↳</span> {cq}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                        {isGenerating && (
-                          <div className={styles.msgAssistant}>
-                            <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>
-                              Formulating cited response with cross-questions...
-                            </span>
+                            <p style={{ color: '#fff', padding: '20px' }}>
+                              PDF viewer plugin not detected. <a href={currentPaper.pdfUrl} target="_blank" style={{ color: '#fff', textDecoration: 'underline' }}>Click here to view PDF directly</a> or switch to the Manuscript Pages tab.
+                            </p>
+                          </object>
+                        ) : (
+                          <div style={{ color: '#fff', padding: '40px', textAlign: 'center' }}>
+                            PDF document stream initializing. Switch to "Manuscript Pages" to inspect full text.
                           </div>
                         )}
-
-                        <div ref={chatEndRef} />
                       </div>
-
-                      {/* Chat Form */}
-                      <form
-                        className={styles.chatInputForm}
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }}
-                      >
-                        <input
-                          type="text"
-                          className={styles.chatInputField}
-                          placeholder="Ask about this paper..."
-                          value={inputMessage}
-                          onChange={(e) => setInputMessage(e.target.value)}
-                          disabled={isGenerating}
-                          id="input-chat-query"
-                        />
-                        <button
-                          type="submit"
-                          className="btn btn-primary btn-sm"
-                          disabled={isGenerating || !inputMessage.trim()}
-                          id="btn-send-chat"
-                        >
-                          Send
-                        </button>
-                      </form>
-                    </aside>
+                    </div>
                   )}
-                </div>
+
+                  {/* SUB-VIEW 2: PAGE-BY-PAGE MANUSCRIPT READER */}
+                  {readerMode === 'manuscript' && (
+                    <div className={styles.manuscriptContainer}>
+                      {currentPaper.pages_data && currentPaper.pages_data.length > 0 ? (
+                        currentPaper.pages_data.map((pageInfo) => (
+                          <div key={pageInfo.page} className={styles.manuscriptPage}>
+                            <div className={styles.manuscriptPageHeader}>
+                              <span>Page {pageInfo.page} of {currentPaper.total_pages}</span>
+                              <span>Select text to ask questions</span>
+                            </div>
+                            <div className={styles.manuscriptPageText}>
+                              {pageInfo.text}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '30px', textAlign: 'center', color: 'var(--ink-muted)' }}>
+                          Manuscript page text is indexed. Highlight text anywhere in the summary or view original PDF.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUB-VIEW 3: EDITORIAL DIGEST (EXECUTIVE SUMMARY & METHODOLOGY) */}
+                  {readerMode === 'digest' && (
+                    <>
+                      {/* Executive Summary */}
+                      <section className={styles.paperSection}>
+                        <h3 className={styles.sectionHeading}>I. Executive Synthesis</h3>
+                        <p className={styles.leadParagraph}>{currentPaper.breakdown.executive_summary}</p>
+                      </section>
+
+                      {/* Key Contributions */}
+                      <section className={styles.paperSection}>
+                        <h3 className={styles.sectionHeading}>II. Primary Methodological Innovations</h3>
+                        <ul className={styles.contributionList}>
+                          {currentPaper.breakdown.key_contributions.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      </section>
+
+                      {/* Methodology */}
+                      <section className={styles.paperSection}>
+                        <h3 className={styles.sectionHeading}>III. Theoretical Architecture & Implementation</h3>
+                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                          {currentPaper.breakdown.methodology}
+                        </p>
+                      </section>
+
+                      {/* Experimental Results */}
+                      <section className={styles.paperSection}>
+                        <h3 className={styles.sectionHeading}>IV. Empirical Benchmarks & Findings</h3>
+                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                          {currentPaper.breakdown.results_and_benchmarks}
+                        </p>
+                      </section>
+
+                      {/* Limitations */}
+                      <section className={styles.paperSection}>
+                        <h3 className={styles.sectionHeading}>V. Critical Limitations & Scope</h3>
+                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                          {currentPaper.breakdown.limitations}
+                        </p>
+                      </section>
+
+                      {/* BibTeX Citation */}
+                      {currentPaper.breakdown.bibtex && (
+                        <section className={styles.paperSection}>
+                          <h3 className={styles.sectionHeading}>Archival BibTeX Citation</h3>
+                          <pre className={styles.bibtexBox}>{currentPaper.breakdown.bibtex}</pre>
+                        </section>
+                      )}
+                    </>
+                  )}
+                </article>
+
+                {/* Right Column: Scholarly Co-Pilot Chat (In Split View) */}
+                {viewMode === 'split' && (
+                  <aside className={styles.coPilotColumn}>
+                    <div className={styles.coPilotHeader}>
+                      <span className={styles.coPilotLabel}>GROUNDED SCHOLARLY CO-PILOT</span>
+                      <span className={styles.coPilotSub}>RAG with Citation Excerpts</span>
+                    </div>
+
+                    <div className={styles.chatScrollArea}>
+                      {messages.map((m, idx) => (
+                        <div
+                          key={idx}
+                          className={`${styles.chatMessage} ${m.role === 'user' ? styles.chatMessageUser : styles.chatMessageAssistant}`}
+                        >
+                          <div className={styles.messageSender}>
+                            {m.role === 'user' ? 'RESEARCH INQUIRY' : 'SCHOLARLY CO-PILOT'}
+                          </div>
+                          <div className={styles.messageContent} style={{ whiteSpace: 'pre-wrap' }}>
+                            {m.content}
+                          </div>
+
+                          {/* Citations */}
+                          {m.citations && m.citations.length > 0 && (
+                            <div className={styles.citationsBox}>
+                              <div className={styles.citationsTitle}>GROUNDED SOURCES:</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {m.citations.map((c, cIdx) => (
+                                  <button
+                                    key={cIdx}
+                                    className={styles.citationBadge}
+                                    onClick={() => setSelectedCitation(c)}
+                                    title={c.snippet}
+                                  >
+                                    {c.filename ? `${c.filename.replace('.pdf', '')}, p.${c.page}` : `Page ${c.page}`}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Interactive Cross-Questions */}
+                          {m.cross_questions && m.cross_questions.length > 0 && (
+                            <div className={styles.crossQuestionsBox}>
+                              <div className={styles.crossQuestionsTitle}>FOLLOW-UP CROSS QUESTIONS:</div>
+                              <div className={styles.crossQuestionList}>
+                                {m.cross_questions.map((q, qIdx) => (
+                                  <button
+                                    key={qIdx}
+                                    className={styles.crossQuestionPill}
+                                    onClick={() => handleSendMessage(q)}
+                                    title="Click to interrogate this question"
+                                  >
+                                    → {q}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div ref={chatMessagesEndRef} />
+                    </div>
+
+                    {/* Active Quote banner */}
+                    {activeQuote && (
+                      <div className={styles.activeQuoteBox}>
+                        <span className={styles.activeQuoteSnippet}>
+                          <strong>Quoted:</strong> &ldquo;{activeQuote}&rdquo;
+                        </span>
+                        <button className={styles.activeQuoteDismiss} onClick={() => setActiveQuote(null)}>
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Prompt Box */}
+                    <div className={styles.chatInputContainer}>
+                      <textarea
+                        ref={chatInputRef}
+                        className={styles.chatInput}
+                        placeholder={activeQuote ? `Inquire about highlighted passage...` : `Ask about methodology, benchmarks, or limitations...`}
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        rows={2}
+                      />
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleSendMessage()}
+                        disabled={isGenerating || !inputMessage.trim()}
+                      >
+                        {isGenerating ? 'Analyzing...' : 'Inquire'}
+                      </button>
+                    </div>
+                  </aside>
+                )}
               </div>
             )}
           </div>
