@@ -213,7 +213,6 @@ export default function Home() {
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      // If clicking outside the floating pill, clear it
       const target = e.target as HTMLElement;
       if (!target.closest('#floating-highlight-pill')) {
         setHighlightSelection(null);
@@ -262,7 +261,7 @@ export default function Home() {
         try {
           localPdfMap[f.name] = URL.createObjectURL(f);
         } catch {
-          // ignore blob creation error
+          // ignore blob error
         }
       }
     }
@@ -380,8 +379,6 @@ export default function Home() {
       if (geminiKey.trim()) headers['x-gemini-key'] = geminiKey.trim();
       if (groqKey.trim()) headers['x-groq-key'] = groqKey.trim();
 
-      const currentPaper = papers.find(p => p.paper_id === activePaperId) || papers[0];
-
       const res = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
         headers,
@@ -475,7 +472,7 @@ export default function Home() {
   const currentPaper = papers.find(p => p.paper_id === activePaperId) || papers[0];
 
   return (
-    <div className={styles.newspaperShell}>
+    <div className={styles.wrapper}>
       {/* Floating Section Highlight Popover */}
       {highlightSelection && (
         <div
@@ -507,29 +504,29 @@ export default function Home() {
       )}
 
       {/* Top Folio / Masthead Bar */}
-      <header className={styles.topFolio}>
-        <div className={styles.folioMeta}>
-          <div className={styles.folioLeft}>
+      <header className={styles.masthead}>
+        <div className={styles.topEarBar}>
+          <div className={styles.earLeft}>
             <span>THE SCHOLARLY DISPATCH</span>
-            <span className={styles.folioDot}>•</span>
+            <span className={styles.earDot}>•</span>
             <span>EST. 2026</span>
-            <span className={styles.folioDot}>•</span>
+            <span className={styles.earDot}>•</span>
             <span className="badge badge-heavy">{selectedModel.toUpperCase()}</span>
           </div>
-          <div className={styles.folioRight}>
-            <button className={styles.themeToggle} onClick={toggleNightMode}>
+          <div className={styles.earRight}>
+            <button className={styles.earBtn} onClick={toggleNightMode}>
               {isNightMode ? '☀ DAY MODE' : '☾ NIGHT'}
             </button>
-            <span className={styles.folioDot}>•</span>
-            <button className={styles.settingsLink} onClick={() => setShowApiModal(true)}>
+            <span className={styles.earDot}>•</span>
+            <button className={styles.earBtn} onClick={() => setShowApiModal(true)}>
               API CONFIG
             </button>
           </div>
         </div>
 
-        <div className={styles.masthead}>
-          <h1 className={styles.mastheadTitle}>THE SCHOLARLY GAZETTE</h1>
-          <p className={styles.mastheadSubtitle}>
+        <div className={styles.centerMasthead}>
+          <h1 className={styles.newspaperLogo}>THE SCHOLARLY GAZETTE</h1>
+          <p className={styles.newspaperTagline}>
             Monochromatic Literature Digest & Retrieval-Augmented Cross-Paper Research Platform
           </p>
         </div>
@@ -538,26 +535,26 @@ export default function Home() {
         <div className={styles.navBar}>
           <div className={styles.viewModeNav}>
             <button
-              className={`${styles.viewModeBtn} ${viewMode === 'split' ? styles.viewModeActive : ''}`}
+              className={`${styles.viewModeBtn} ${viewMode === 'split' ? styles.viewModeBtnActive : ''}`}
               onClick={() => setViewMode('split')}
             >
               📰 Split View
             </button>
             <button
-              className={`${styles.viewModeBtn} ${viewMode === 'chatgpt' ? styles.viewModeActive : ''}`}
+              className={`${styles.viewModeBtn} ${viewMode === 'chatgpt' ? styles.viewModeBtnActive : ''}`}
               onClick={() => setViewMode('chatgpt')}
             >
               💬 ChatGPT Mode
             </button>
             <button
-              className={`${styles.viewModeBtn} ${viewMode === 'article' ? styles.viewModeActive : ''}`}
+              className={`${styles.viewModeBtn} ${viewMode === 'article' ? styles.viewModeBtnActive : ''}`}
               onClick={() => setViewMode('article')}
             >
               Article View
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className={styles.actionGroup}>
             {papers.length === 0 ? (
               <button
                 className="btn btn-secondary btn-sm"
@@ -567,7 +564,7 @@ export default function Home() {
                 Sample Papers (2x)
               </button>
             ) : (
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <>
                 <button
                   className="btn btn-secondary btn-sm"
                   onClick={() => fileInputRef.current?.click()}
@@ -582,7 +579,7 @@ export default function Home() {
                 >
                   Export Report
                 </button>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -729,26 +726,26 @@ export default function Home() {
                 </aside>
 
                 {/* Main Conversational Workspace */}
-                <section className={styles.chatgptMain}>
-                  <div className={styles.chatHeaderBar}>
-                    <div className={styles.chatHeaderTitle}>
+                <section className={styles.chatgptContainer}>
+                  <div className={styles.assistantHeader}>
+                    <div className={styles.assistantTitle}>
                       Academic Co-Pilot: {activePaperId === 'all' ? 'Corpus Synthesis' : currentPaper.filename}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)' }}>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--ink-secondary)' }}>
                       Highlight any text in reader view to ask targeted questions
                     </div>
                   </div>
 
-                  <div className={styles.chatMessagesArea}>
+                  <div className={styles.chatFeed}>
                     {messages.map((m, idx) => (
                       <div
                         key={idx}
-                        className={`${styles.chatMessage} ${m.role === 'user' ? styles.chatMessageUser : styles.chatMessageAssistant}`}
+                        className={m.role === 'user' ? styles.msgUser : styles.msgAssistant}
                       >
-                        <div className={styles.messageSender}>
+                        <div className={styles.msgSender}>
                           {m.role === 'user' ? 'RESEARCH INQUIRY' : 'SCHOLARLY CO-PILOT'}
                         </div>
-                        <div className={styles.messageContent} style={{ whiteSpace: 'pre-wrap' }}>
+                        <div style={{ whiteSpace: 'pre-wrap' }}>
                           {m.content}
                         </div>
 
@@ -774,8 +771,8 @@ export default function Home() {
                         {/* Interactive Cross-Questions */}
                         {m.cross_questions && m.cross_questions.length > 0 && (
                           <div className={styles.crossQuestionsBox}>
-                            <div className={styles.crossQuestionsTitle}>PROBING CROSS-EXAMINATION QUESTIONS:</div>
-                            <div className={styles.crossQuestionList}>
+                            <div className={styles.crossQuestionsLabel}>PROBING CROSS-EXAMINATION QUESTIONS:</div>
+                            <div className={styles.crossQuestionsList}>
                               {m.cross_questions.map((q, qIdx) => (
                                 <button
                                   key={qIdx}
@@ -807,10 +804,10 @@ export default function Home() {
                   )}
 
                   {/* Prompt Box */}
-                  <div className={styles.chatInputContainer}>
+                  <div className={styles.chatInputForm}>
                     <textarea
                       ref={chatInputRef}
-                      className={styles.chatInput}
+                      className={styles.chatInputField}
                       placeholder={activeQuote ? `Inquire about highlighted passage...` : `Ask about methodology, theoretical baselines, or limitations...`}
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
@@ -836,15 +833,16 @@ export default function Home() {
 
             {/* VIEW MODE 2 & 3: SPLIT VIEW OR ARTICLE VIEW */}
             {viewMode !== 'chatgpt' && (
-              <div className={viewMode === 'split' ? styles.splitGrid : styles.articleLayout}>
+              <div className={viewMode === 'split' ? styles.editorialGrid : styles.storyColumn}>
                 {/* Left Column: Reader & Digest */}
-                <article className={styles.paperColumn}>
+                <article className={styles.storyColumn}>
                   {/* Headline & Metadata */}
-                  <div className={styles.paperMasthead}>
-                    <h2 className={styles.paperHeadline}>{currentPaper.breakdown.title}</h2>
-                    <div className={styles.bylineBlock}>
-                      <span className={styles.bylineAuthors}>INVESTIGATORS: {currentPaper.breakdown.authors}</span>
-                      <span className={styles.bylineVenue}>VENUE: {currentPaper.breakdown.publication_venue}</span>
+                  <div className={styles.articleHeader}>
+                    <div className={styles.articleCategory}>SCHOLARLY MONOGRAPH</div>
+                    <h2 className={styles.articleHeadline}>{currentPaper.breakdown.title}</h2>
+                    <div className={styles.bylineStrip}>
+                      <span className={styles.authorAffiliation}>INVESTIGATORS: {currentPaper.breakdown.authors}</span>
+                      <span className={styles.authorAffiliation}>VENUE: {currentPaper.breakdown.publication_venue}</span>
                     </div>
                   </div>
 
@@ -855,23 +853,23 @@ export default function Home() {
                         className={`${styles.readerTab} ${readerMode === 'digest' ? styles.readerTabActive : ''}`}
                         onClick={() => setReaderMode('digest')}
                       >
-                        📜 Editorial Digest
+                        EDITORIAL DIGEST
                       </button>
                       <button
                         className={`${styles.readerTab} ${readerMode === 'pdf' ? styles.readerTabActive : ''}`}
                         onClick={() => setReaderMode('pdf')}
                       >
-                        📑 Original PDF
+                        ORIGINAL PDF
                       </button>
                       <button
                         className={`${styles.readerTab} ${readerMode === 'manuscript' ? styles.readerTabActive : ''}`}
                         onClick={() => setReaderMode('manuscript')}
                       >
-                        📖 Manuscript Pages ({currentPaper.pages_data?.length || currentPaper.total_pages}p)
+                        MANUSCRIPT PAGES ({currentPaper.pages_data?.length || currentPaper.total_pages}P)
                       </button>
                     </div>
 
-                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
+                    <div className={styles.readerHint}>
                       Highlight text to ask Co-Pilot
                     </div>
                   </div>
@@ -939,48 +937,51 @@ export default function Home() {
                   {readerMode === 'digest' && (
                     <>
                       {/* Executive Summary */}
-                      <section className={styles.paperSection}>
+                      <section className={styles.storySection}>
                         <h3 className={styles.sectionHeading}>I. Executive Synthesis</h3>
                         <p className={styles.leadParagraph}>{currentPaper.breakdown.executive_summary}</p>
                       </section>
 
                       {/* Key Contributions */}
-                      <section className={styles.paperSection}>
+                      <section className={styles.storySection}>
                         <h3 className={styles.sectionHeading}>II. Primary Methodological Innovations</h3>
                         <ul className={styles.contributionList}>
                           {currentPaper.breakdown.key_contributions.map((c, i) => (
-                            <li key={i}>{c}</li>
+                            <li key={i} className={styles.contributionItem}>
+                              <span className={styles.contributionIndex}>0{i + 1}.</span>
+                              <span className={styles.contributionText}>{c}</span>
+                            </li>
                           ))}
                         </ul>
                       </section>
 
                       {/* Methodology */}
-                      <section className={styles.paperSection}>
+                      <section className={styles.storySection}>
                         <h3 className={styles.sectionHeading}>III. Theoretical Architecture & Implementation</h3>
-                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                        <div className={styles.storyBody} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                           {currentPaper.breakdown.methodology}
-                        </p>
+                        </div>
                       </section>
 
                       {/* Experimental Results */}
-                      <section className={styles.paperSection}>
+                      <section className={styles.storySection}>
                         <h3 className={styles.sectionHeading}>IV. Empirical Benchmarks & Findings</h3>
-                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                        <div className={styles.storyBody} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                           {currentPaper.breakdown.results_and_benchmarks}
-                        </p>
+                        </div>
                       </section>
 
                       {/* Limitations */}
-                      <section className={styles.paperSection}>
+                      <section className={styles.storySection}>
                         <h3 className={styles.sectionHeading}>V. Critical Limitations & Scope</h3>
-                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                        <div className={styles.storyBody} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                           {currentPaper.breakdown.limitations}
-                        </p>
+                        </div>
                       </section>
 
                       {/* BibTeX Citation */}
                       {currentPaper.breakdown.bibtex && (
-                        <section className={styles.paperSection}>
+                        <section className={styles.storySection}>
                           <h3 className={styles.sectionHeading}>Archival BibTeX Citation</h3>
                           <pre className={styles.bibtexBox}>{currentPaper.breakdown.bibtex}</pre>
                         </section>
@@ -991,22 +992,24 @@ export default function Home() {
 
                 {/* Right Column: Scholarly Co-Pilot Chat (In Split View) */}
                 {viewMode === 'split' && (
-                  <aside className={styles.coPilotColumn}>
-                    <div className={styles.coPilotHeader}>
-                      <span className={styles.coPilotLabel}>GROUNDED SCHOLARLY CO-PILOT</span>
-                      <span className={styles.coPilotSub}>RAG with Citation Excerpts</span>
+                  <aside className={styles.assistantColumn}>
+                    <div className={styles.assistantHeader}>
+                      <div>
+                        <div className={styles.assistantTitle}>GROUNDED SCHOLARLY CO-PILOT</div>
+                        <div className={styles.assistantSub}>RAG with Citation Excerpts</div>
+                      </div>
                     </div>
 
-                    <div className={styles.chatScrollArea}>
+                    <div className={styles.chatFeed}>
                       {messages.map((m, idx) => (
                         <div
                           key={idx}
-                          className={`${styles.chatMessage} ${m.role === 'user' ? styles.chatMessageUser : styles.chatMessageAssistant}`}
+                          className={m.role === 'user' ? styles.msgUser : styles.msgAssistant}
                         >
-                          <div className={styles.messageSender}>
+                          <div className={styles.msgSender}>
                             {m.role === 'user' ? 'RESEARCH INQUIRY' : 'SCHOLARLY CO-PILOT'}
                           </div>
-                          <div className={styles.messageContent} style={{ whiteSpace: 'pre-wrap' }}>
+                          <div style={{ whiteSpace: 'pre-wrap' }}>
                             {m.content}
                           </div>
 
@@ -1032,8 +1035,8 @@ export default function Home() {
                           {/* Interactive Cross-Questions */}
                           {m.cross_questions && m.cross_questions.length > 0 && (
                             <div className={styles.crossQuestionsBox}>
-                              <div className={styles.crossQuestionsTitle}>FOLLOW-UP CROSS QUESTIONS:</div>
-                              <div className={styles.crossQuestionList}>
+                              <div className={styles.crossQuestionsLabel}>FOLLOW-UP CROSS QUESTIONS:</div>
+                              <div className={styles.crossQuestionsList}>
                                 {m.cross_questions.map((q, qIdx) => (
                                   <button
                                     key={qIdx}
@@ -1065,10 +1068,10 @@ export default function Home() {
                     )}
 
                     {/* Prompt Box */}
-                    <div className={styles.chatInputContainer}>
+                    <div className={styles.chatInputForm}>
                       <textarea
                         ref={chatInputRef}
-                        className={styles.chatInput}
+                        className={styles.chatInputField}
                         placeholder={activeQuote ? `Inquire about highlighted passage...` : `Ask about methodology, benchmarks, or limitations...`}
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
