@@ -527,7 +527,7 @@ export default function Home() {
         <div className={styles.centerMasthead}>
           <h1 className={styles.newspaperLogo}>THE SCHOLARLY GAZETTE</h1>
           <p className={styles.newspaperTagline}>
-            Monochromatic Literature Digest & Retrieval-Augmented Cross-Paper Research Platform
+            Literature Digest & Retrieval-Augmented Cross-Paper Research Platform
           </p>
         </div>
 
